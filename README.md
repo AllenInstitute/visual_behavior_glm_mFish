@@ -9,30 +9,30 @@ Before installing, it's recommended to set up a new Python environment with Pyth
 
 For example, using Conda:
 
-    conda create -n visual_behavior_glm python=3.7.9
+    conda create -n mFish_glm python=3.8
 
 Then activate the environment:
 
-    conda activate visual_behavior_glm
+    conda activate mFish_glm
 
 ## Installation
 
-To facilitate development, it is recommended to set up the package in 'editable' mode:
+Currently, we are working with a forked version of AllenSDK that lives on Matt's git page:
 
-    git clone https://github.com/AllenInstitute/visual_behavior_glm.git
-    cd visual_behavior_glm
+    git clone 'https://github.com/mattjdavis/AllenSDK.git't
+    cd AllenSDK
     pip install -e .
 
-An additional dependency of the package is `visual_behavior_analysis` (VBA)  
-Assuming that most users of this package will also be contributing to VBA, it should also be installed in 'editable' mode:
+An additional dependency of the package is `brain_observatory_analysis` (BOA)  
+Assuming that most users of this package will also be contributing to BOA, it should also be installed in 'editable' mode:
 
-    git clone https://github.com/AllenInstitute/visual_behavior_analysis.git
-    cd visual_behavior_analysis
+    git clone https://github.com/AllenInstitute/brain_observatory_analysis.git
+    cd brain_observatory_analysis
     pip install -e .
 
 Alternatively, the current master branch could be installed with:
 
-    pip install git+https://github.com/AllenInstitute/visual_behavior_analysis.git
+    pip install git+https://github.com/AllenInstitute/brain_observatory_analysis.git
 
 Test that the package was installed properly by importing the GLM class from outside of the visual_behavior_glm directory:
 
@@ -40,7 +40,7 @@ Test that the package was installed properly by importing the GLM class from out
     python
     >>> from visual_behavior_glm.glm import GLM
 
-Please report issues at https://github.com/AllenInstitute/visual_behavior_glm/issues
+Please report issues at https://github.com/yavorska-iryna/visual_behavior_glm_mFish/issues
 
 # Use
 
