@@ -1,4 +1,3 @@
-allensdk
 h5py
 matplotlib
 plotly
