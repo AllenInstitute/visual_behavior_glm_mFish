@@ -21,8 +21,10 @@ from sklearn.linear_model import SGDRegressor
 
 
 import visual_behavior_glm.GLM_analysis_tools as gat
-import visual_behavior.data_access.loading as loading
-import visual_behavior.data_access.reformat as reformat
+from mindscope_qc.data_access import behavior_ophys_experiment_dev as BehaviorOphysExperimentDev
+from brain_observatory_utilities.datasets import behavior # instead of reformat
+# import visual_behavior.data_access.loading as loading
+# import visual_behavior.data_access.reformat as reformat
 
 def load_fit_experiment(ophys_experiment_id, run_params):
     '''
@@ -943,7 +945,8 @@ def load_data(oeid, run_params):
     else:
         include_invalid_rois = False
 
-    dataset = loading.get_ophys_dataset(oeid, include_invalid_rois=include_invalid_rois)
+    # dataset = loading.get_ophys_dataset(oeid, include_invalid_rois=include_invalid_rois)
+    dataset = BehaviorOphysExperimentDev(oeid)
 
     return dataset
 
@@ -1330,7 +1333,8 @@ def add_engagement_labels(fit, session, run_params):
     win_type='triang'
 
     # Get reward rate
-    session.stimulus_presentations = reformat.add_rewards_each_flash(session.stimulus_presentations,session.rewards)
+    session.stimulus_presentations = behavior.add_rewards_to_stimulus_presentations(session.stimulus_presentations,session.rewards,
+                                                                                    time_window=[0, 0.75])
     session.stimulus_presentations['rewarded'] = [len(x) > 0 for x in session.stimulus_presentations['rewards']]
     session.stimulus_presentations['reward_rate'] = session.stimulus_presentations['rewarded'].rolling(win_dur,min_periods=1,win_type=win_type).mean()/.75
     session.stimulus_presentations['engaged']= [x > reward_threshold for x in session.stimulus_presentations['reward_rate']]    
