@@ -12,7 +12,9 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 
 import visual_behavior_glm.GLM_params as glm_params
-import visual_behavior.data_access.loading as loading
+from mindscope_qc.data_access import behavior_ophys_experiment_dev as BehaviorOphysExperimentDev
+
+# import visual_behavior.data_access.loading as loading
 import visual_behavior.database as db
 
 from sklearn.decomposition import PCA
@@ -415,7 +417,7 @@ def get_experiment_table(glm_version, include_4x2_data=False):
     
     Warning: this takes a couple of minutes to run.
     '''
-    experiment_table = loading.get_platform_paper_experiment_table(include_4x2_data=include_4x2_data).reset_index() 
+    experiment_table = df.get_mFish_experiment_table().reset_index()
     dropout_summary = retrieve_results({'glm_version':glm_version}, results_type='summary')
     stdout_summary = get_stdout_summary(glm_version)
 
@@ -535,7 +537,7 @@ def retrieve_results(search_dict={}, results_type='full', return_list=None, merg
         if verbose:
             print('Merging in experiment metadata')
         # get experiment table, merge in details of each experiment
-        experiment_table = loading.get_platform_paper_experiment_table(add_extra_columns=add_extra_columns, include_4x2_data=include_4x2_data).reset_index() 
+        experiment_table = db.get_mFish_experiment_table().reset_index()
         results = results.merge(
             experiment_table, 
             left_on='ophys_experiment_id',
@@ -549,26 +551,20 @@ def retrieve_results(search_dict={}, results_type='full', return_list=None, merg
     if remove_invalid_rois:
         # get list of rois I like
         if verbose:
-            print('Loading cell table to remove invalid rois')
+            print('remove invalid rois being ingnoored for now ')
         if 'cell_roi_id' in results:
-            cell_table = loading.get_cell_table(platform_paper_only=True,add_extra_columns=False,include_4x2_data=include_4x2_data).reset_index() 
+            cell_table = db.get_cell_table().reset_index()
             good_cell_roi_ids = cell_table.cell_roi_id.unique()
             results = results.query('cell_roi_id in @good_cell_roi_ids')
-        elif allow_old_rois:
-            print('WARNING, cell_roi_id not found in database, I cannot filter for old rois. The returned results could be out of date, or QC failed')
-        else:
-            raise Exception('cell_roi_id not in database, and allow_old_rois=False')
+
     elif invalid_only:
         if verbose:
-            print('Loading cell table to remove valid rois')
+            print('only invalid rois being ignored right now')
         if 'cell_roi_id' in results:
-            cell_table = loading.get_cell_table(platform_paper_only=True,add_extra_columns=False,include_4x2_data=include_4x2_data).reset_index() 
+            cell_table = cell_table = db.get_cell_table().reset_index()
             good_cell_roi_ids = cell_table.cell_roi_id.unique()
             results = results.query('cell_roi_id not in @good_cell_roi_ids')
-        elif allow_old_rois:
-            print('WARNING, cell_roi_id not found in database, I cannot filter for old rois. The returned results could be out of date, or QC failed')
-        else:
-            raise Exception('cell_roi_id not in database, and allow_old_rois=False') 
+
     
     if ('variance_explained' in results) and (np.sum(results['variance_explained'].isnull()) > 0):
         print('Warning! Dropout models with NaN variance explained. This shouldn\'t happen')
@@ -753,7 +749,7 @@ def get_experiment_inventory(results=None):
         results = results_dict['full']
     results = results.set_index(['ophys_experiment_id'])
     
-    experiments_table = loading.get_platform_paper_experiment_table(add_extra_columns=False,include_4x2_data=False)
+    experiments_table = db.get_mFish_experiment_table()
 
     for glm_version in results['glm_version'].unique():
         for oeid in experiments_table.index.values:
@@ -1286,7 +1282,7 @@ def inventory_glm_version(glm_version, valid_rois_only=True, platform_paper_only
     include_4x2_data = run_params['include_4x2_data']
  
     # Get list of cells in the dataset
-    cell_table = loading.get_cell_table(platform_paper_only=platform_paper_only,add_extra_columns=False,include_4x2_data=include_4x2_data).reset_index()
+    cell_table = db.get_cell_table().reset_index()
 
     # get list of rois and experiments we have fit
     total_experiments = glm_results['ophys_experiment_id'].unique()
