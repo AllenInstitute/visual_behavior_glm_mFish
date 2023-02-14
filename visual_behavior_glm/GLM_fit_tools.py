@@ -7,6 +7,7 @@ import pandas as pd
 import scipy 
 from tqdm import tqdm
 from copy import copy
+import json
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 from sklearn.linear_model import ElasticNetCV
@@ -70,7 +71,7 @@ def load_run_json(path, VERSION):
     filepath = os.path.join(path, 'v_'+VERSION, 'run_params.json')
     with open(filepath) as f:
         run_params = f.read()
-    return run_params
+    return json.loads(run_params)
 
 def check_run_fits(path, VERSION):
     '''
@@ -115,7 +116,7 @@ def setup_cv(fit,run_params):
     fit['ridge_splits'] = split_time(fit['fit_trace_timestamps'], output_splits=run_params['CV_splits'], subsplits_per_split=run_params['CV_subsplits'])
     return fit
 
-def fit_experiment(oeid, run_params, NO_DROPOUTS=True, TESTING=True):
+def fit_experiment(oeid, run_params, NO_DROPOUTS=False, TESTING=False):
     '''
         Fits the GLM to the ophys_experiment_id
         
@@ -160,7 +161,7 @@ def fit_experiment(oeid, run_params, NO_DROPOUTS=True, TESTING=True):
     design = DesignMatrix(fit) 
 
     # Add kernels
-    design = add_kernels(design, run_params, session, fit) 
+    design = add_kernels(design, run_params, experiment, fit)
     check_weight_lengths(fit,design)
 
     # Check Interpolation onto stimulus timestamps
@@ -168,7 +169,7 @@ def fit_experiment(oeid, run_params, NO_DROPOUTS=True, TESTING=True):
         check_image_kernel_alignment(design,run_params)
 
     # split by engagement
-    design,fit = split_by_engagement(design, run_params, session, fit)
+    design,fit = split_by_engagement(design, run_params, experiment, fit)
 
     # Set up CV splits
     print('Setting up CV')
@@ -176,7 +177,7 @@ def fit_experiment(oeid, run_params, NO_DROPOUTS=True, TESTING=True):
 
     # Determine Regularization Strength
     print('Evaluating Regularization values')
-    fit = evaluate_ridge(fit, design, run_params,session)
+    fit = evaluate_ridge(fit, design, run_params,experiment)
 
     # Set up kernels to drop for model selection
     print('Setting up model selection dropout')
@@ -212,7 +213,7 @@ def fit_experiment(oeid, run_params, NO_DROPOUTS=True, TESTING=True):
 
     # Pack up
     print('Finished') 
-    return session, fit, design
+    return experiment, fit, design
 
 def evaluate_shuffle(fit, design, method='cells', num_shuffles=50):
     '''
@@ -1016,7 +1017,7 @@ def process_eye_data(session,run_params,ophys_timestamps=None):
     return ophys_eye 
 
 
-def process_data(session, run_params, TESTING=False):
+def process_data(experiment, run_params, TESTING=False):
     '''
     Processes dff traces by trimming off portions of recording session outside of the task period. These include:
         * a ~5 minute gray screen period before the task begins
@@ -1031,15 +1032,15 @@ def process_data(session, run_params, TESTING=False):
     '''
 
     # clip off the grey screen periods
-    fit_trace_timestamps = session.ophys_timestamps
+    fit_trace_timestamps = experiment.ophys_timestamps
     timestamps_to_use = get_ophys_frames_to_use(session)
 
     # Get the matrix of dff traces
-    dff_trace_arr = get_dff_arr(session, timestamps_to_use)
+    dff_trace_arr = get_dff_arr(experiment, timestamps_to_use)
     
     if ('use_events' in run_params) and (run_params['use_events']):
         print('Using detected events instead of df/f')
-        events_trace_arr = get_events_arr(session, timestamps_to_use) 
+        events_trace_arr = get_events_arr(experiment, timestamps_to_use) 
         assert np.size(dff_trace_arr) == np.size(events_trace_arr), 'Events array doesnt match size of df/f array'
         fit_trace_arr = copy(events_trace_arr)
     else:
@@ -1086,12 +1087,12 @@ def extract_and_annotate_ophys(experiment, run_params, TESTING=False):
     fit['ophys_frame_rate'] = experiment.metadata['ophys_frame_rate']
    
     # Interpolate onto stimulus 
-    fit,run_params = interpolate_to_stimulus(fit, experiment.inner, run_params)
+    fit,run_params = interpolate_to_stimulus(fit, experiment, run_params)
  
     # If we are splitting on engagement, then determine the engagement timepoints
     if run_params['split_on_engagement']:
         print('Adding Engagement labels. Preferred engagement state: '+run_params['engagement_preference'])
-        fit = add_engagement_labels(fit, experiment.inner, run_params)
+        fit = add_engagement_labels(fit, experiment, run_params)
     else:
         fit['ok_to_fit_preferred_engagement'] = True
     return fit, run_params
@@ -1571,7 +1572,7 @@ def standardize_inputs(timeseries, mean_center=True, unit_variance=True,max_valu
 
     return timeseries
 
-def add_discrete_kernel_by_label(kernel_name,design, run_params,session,fit):
+def add_discrete_kernel_by_label(kernel_name,design, run_params,experiment,fit):
     '''
         Adds the kernel specified by <kernel_name> to the design matrix
         kernel_name     <str> the label for this kernel, will raise an error if not implemented
@@ -1586,7 +1587,7 @@ def add_discrete_kernel_by_label(kernel_name,design, run_params,session,fit):
             raise Exception('\tInsufficient time points to add kernel') 
         event = run_params['kernels'][kernel_name]['event']
         if event == 'licks':
-            event_times = session.licks['timestamps'].values
+            event_times = experiment.licks['timestamps'].values
         elif event == 'lick_bouts':
             licks = session.licks
             licks['pre_ILI'] = licks['timestamps'] - licks['timestamps'].shift(fill_value=-10)
@@ -1602,36 +1603,36 @@ def add_discrete_kernel_by_label(kernel_name,design, run_params,session,fit):
                                         np.arange(x[0],x[0]+x[1],run_params['min_interval']) for x in 
                                         zip(licks['timestamps'], licks['post_ILI'], licks['bout_end'])]) 
         elif event == 'rewards':
-            event_times = session.rewards['timestamps'].values
+            event_times = experiment.rewards['timestamps'].values
         elif event == 'change':
             #event_times = session.trials.query('go')['change_time'].values # This method drops auto-rewarded changes
-            event_times = session.stimulus_presentations.query('is_change')['start_time'].values
+            event_times = experiment.stimulus_presentations.query('is_change')['start_time'].values
             event_times = event_times[~np.isnan(event_times)]
         elif event in ['hit', 'miss', 'false_alarm', 'correct_reject']:
             if event == 'hit': # Includes auto-rewarded changes as hits, since they include a reward. 
-                event_times = session.trials.query('hit or auto_rewarded')['change_time'].values           
+                event_times = experiment.trials.query('hit or auto_rewarded')['change_time'].values
             else:
-                event_times = session.trials.query(event)['change_time'].values
+                event_times = experiment.trials.query(event)['change_time'].values
             event_times = event_times[~np.isnan(event_times)]
-            if len(session.rewards) < 5: ## HARD CODING THIS VALUE
+            if len(experiment.rewards) < 5: ## HARD CODING THIS VALUE
                 raise Exception('Trial type regressors arent defined for passive sessions (sessions with less than 5 rewards)')
         elif event == 'passive_change':
-            if len(session.rewards) > 5: 
+            if len(experiment.rewards) > 5:
                 raise Exception('\tPassive Change kernel cant be added to active sessions')               
-            event_times = session.stimulus_presentations.query('is_change')['start_time'].values
+            event_times = experiment.stimulus_presentations.query('is_change')['start_time'].values
             event_times = event_times[~np.isnan(event_times)]           
         elif event == 'any-image':
-            event_times = session.stimulus_presentations.query('not omitted')['start_time'].values
+            event_times = experiment.stimulus_presentations.query('not omitted')['start_time'].values
         elif event == 'image_expectation':
-            event_times = session.stimulus_presentations['start_time'].values
+            event_times = experiment.stimulus_presentations['start_time'].values
             # Append last image
             event_times = np.concatenate([event_times,[event_times[-1]+.75]])
         elif event == 'omissions':
-            event_times = session.stimulus_presentations.query('omitted')['start_time'].values
+            event_times = experiment.stimulus_presentations.query('omitted')['start_time'].values
         elif (len(event)>5) & (event[0:5] == 'image') & ('change' not in event):
-            event_times = session.stimulus_presentations.query('image_index == {}'.format(int(event[-1])))['start_time'].values
+            event_times = experiment.stimulus_presentations.query('image_index == {}'.format(int(event[-1])))['start_time'].values
         elif (len(event)>5) & (event[0:5] == 'image') & ('change' in event):
-            event_times = session.stimulus_presentations.query('is_change & (image_index == {})'.format(int(event[-1])))['start_time'].values
+            event_times = experiment.stimulus_presentations.query('is_change & (image_index == {})'.format(int(event[-1])))['start_time'].values
         else:
             raise Exception('\tCould not resolve kernel label')
 
@@ -1651,14 +1652,14 @@ def add_discrete_kernel_by_label(kernel_name,design, run_params,session,fit):
             'error_type': 'kernel', 
             'kernel_name': kernel_name, 
             'exception':e.args[0], 
-            'oeid':session.metadata['ophys_experiment_id'], 
+            'oeid':experiment.metadata['ophys_experiment_id'], 
             'glm_version':run_params['version']
         }
-        # log error to mongo:
-        gat.log_error(
-            run_params['kernel_error_dict'][kernel_name], 
-            keys_to_check = ['oeid', 'glm_version', 'kernel_name']
-        )        
+        # log error to mongo: # commenting this out since mongodb 'omFish' database is not set up, ira 23.02.14
+        # gat.log_error(
+        #     run_params['kernel_error_dict'][kernel_name],
+        #     keys_to_check = ['oeid', 'glm_version', 'kernel_name']
+        # )
         return design       
     else:
         events_vec, timestamps = np.histogram(event_times, bins=fit['fit_trace_bins'])
