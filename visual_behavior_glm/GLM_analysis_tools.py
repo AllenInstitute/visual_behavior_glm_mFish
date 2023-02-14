@@ -15,7 +15,7 @@ import visual_behavior_glm.GLM_params as glm_params
 from mindscope_qc.data_access import behavior_ophys_experiment_dev as BehaviorOphysExperimentDev
 
 # import visual_behavior.data_access.loading as loading
-import visual_behavior.database as db
+import visual_behavior_glm.database as db
 
 from sklearn.decomposition import PCA
 
