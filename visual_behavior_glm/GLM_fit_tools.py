@@ -42,7 +42,7 @@ def load_fit_experiment(ophys_experiment_id, run_params):
         design      DesignMatrix object for this experiment
     '''
     fit = gat.load_fit_pkl(run_params, ophys_experiment_id)
-    session = load_data(ophys_experiment_id, run_params)
+    experiment = load_data(ophys_experiment_id, run_params)
     
     # num_weights gets populated during stimulus interpolation
     # configuring it here so the design matrix gets re-generated consistently
@@ -63,7 +63,16 @@ def load_fit_experiment(ophys_experiment_id, run_params):
     check_weight_lengths(fit,design)
     return session, fit, design
 
-def check_run_fits(VERSION):
+def load_run_json(path, VERSION):
+    '''
+        Reads run_params.json file from folder specified by path and VERSION
+    '''
+    filepath = os.path.join(path, 'v_'+VERSION, 'run_params.json')
+    with open(filepath) as f:
+        run_params = f.read()
+    return run_params
+
+def check_run_fits(path, VERSION):
     '''
         Returns the experiment table for this model version with a column 'GLM_fit' 
         appended that is a bool of whether the output pkl file exists for that 
@@ -75,7 +84,7 @@ def check_run_fits(VERSION):
         RETURNS
         experiment_table,   a dataframe with a boolean column 'GLM_fit' that says whether VERSION was fit for that experiment id
     '''
-    run_params = load_run_json(VERSION)
+    run_params = load_run_json(path, VERSION)
     experiment_table = pd.read_csv(run_params['experiment_table_path']).reset_index(drop=True).set_index('ophys_experiment_id')
     experiment_table['GLM_fit'] = False
     for index, oeid in enumerate(experiment_table.index.values):
@@ -106,7 +115,7 @@ def setup_cv(fit,run_params):
     fit['ridge_splits'] = split_time(fit['fit_trace_timestamps'], output_splits=run_params['CV_splits'], subsplits_per_split=run_params['CV_subsplits'])
     return fit
 
-def fit_experiment(oeid, run_params, NO_DROPOUTS=False, TESTING=False):
+def fit_experiment(oeid, run_params, NO_DROPOUTS=True, TESTING=True):
     '''
         Fits the GLM to the ophys_experiment_id
         
@@ -140,11 +149,11 @@ def fit_experiment(oeid, run_params, NO_DROPOUTS=False, TESTING=False):
 
     # Load Data
     print('Loading data')
-    session = load_data(oeid, run_params)
+    experiment = load_data(oeid, run_params)
 
     # Processing df/f data
     print('Processing df/f data')
-    fit,run_params = extract_and_annotate_ophys(session,run_params, TESTING=TESTING)
+    fit,run_params = extract_and_annotate_ophys(experiment,run_params, TESTING=TESTING)
 
     # Make Design Matrix
     print('Build Design Matrix')
@@ -937,18 +946,19 @@ def load_data(oeid, run_params):
         Allen SDK dataset is an attribute of this object (session)
         Keyword arguments:
             oeid (int) -- ophys_experiment_id
+            oeid (int) -- ophys_experiment_id
             run_params (dict) -- dictionary of parameters
     '''
 
-    if ('include_invalid_rois' in run_params):
-        include_invalid_rois = (run_params['include_invalid_rois'])
-    else:
-        include_invalid_rois = False
+    # if ('include_invalid_rois' in run_params):
+    #    include_invalid_rois = (run_params['include_invalid_rois'])
+    # else:
+    #    include_invalid_rois = False
 
     # dataset = loading.get_ophys_dataset(oeid, include_invalid_rois=include_invalid_rois)
-    dataset = BehaviorOphysExperimentDev(oeid)
+    experiment = BehaviorOphysExperimentDev.BehaviorOphysExperimentDev(oeid)
 
-    return dataset
+    return experiment
 
 def process_behavior_predictions(session, ophys_timestamps=None, cutoff_threshold=0.01):
     '''
@@ -1058,7 +1068,7 @@ def process_data(session, run_params, TESTING=False):
            
     return (fit_trace_arr,dff_trace_arr,events_trace_arr)
 
-def extract_and_annotate_ophys(session, run_params, TESTING=False):
+def extract_and_annotate_ophys(experiment, run_params, TESTING=False):
     '''
         Creates fit dictionary
         extracts dff_trace or events_trace from session object
@@ -1066,27 +1076,27 @@ def extract_and_annotate_ophys(session, run_params, TESTING=False):
         sets up bins for binning times onto the ophys timestamps
     '''
     fit= dict()
-    trace_tuple = process_data(session,run_params, TESTING=TESTING)
+    trace_tuple = process_data(experiment,run_params, TESTING=TESTING)
     fit['fit_trace_arr'] = trace_tuple[0]
     fit['dff_trace_arr'] = trace_tuple[1]
     fit['events_trace_arr'] = trace_tuple[2]
     fit['fit_trace_timestamps'] = fit['fit_trace_arr']['fit_trace_timestamps'].values
     step = np.mean(np.diff(fit['fit_trace_timestamps']))
     fit['fit_trace_bins'] = np.concatenate([fit['fit_trace_timestamps'],[fit['fit_trace_timestamps'][-1]+step]])-step*.5  
-    fit['ophys_frame_rate'] = session.metadata['ophys_frame_rate']
+    fit['ophys_frame_rate'] = experiment.metadata['ophys_frame_rate']
    
     # Interpolate onto stimulus 
-    fit,run_params = interpolate_to_stimulus(fit, session, run_params)
+    fit,run_params = interpolate_to_stimulus(fit, experiment.inner, run_params)
  
     # If we are splitting on engagement, then determine the engagement timepoints
     if run_params['split_on_engagement']:
         print('Adding Engagement labels. Preferred engagement state: '+run_params['engagement_preference'])
-        fit = add_engagement_labels(fit, session, run_params)
+        fit = add_engagement_labels(fit, experiment.inner, run_params)
     else:
         fit['ok_to_fit_preferred_engagement'] = True
     return fit, run_params
 
-def interpolate_to_stimulus(fit, session, run_params):
+def interpolate_to_stimulus(fit, experiment, run_params):
     '''
         This function interpolates the neural signal (either dff or events) onto timestamps that are aligned to the stimulus.
         
@@ -1101,7 +1111,7 @@ def interpolate_to_stimulus(fit, session, run_params):
    
 
     # Find first non omitted stimulus
-    filtered_stimulus_presentations = session.stimulus_presentations
+    filtered_stimulus_presentations = experiment.stimulus_presentations
     while filtered_stimulus_presentations.iloc[0]['omitted'] == True:
         filtered_stimulus_presentations = filtered_stimulus_presentations.iloc[1:]
 
