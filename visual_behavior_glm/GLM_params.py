@@ -189,7 +189,7 @@ def make_run_json(VERSION,label='',username=None, src_path=None, TESTING=False,u
         'L2_grid_range':[.1, 500],      # Min/Max L2 values for L2_optimize_by_cell, or L2_optimize_by_session
         'L2_grid_num': 40,              # Number of L2 values for L2_optimize_by_cell, or L2_optimize_by_session
         'L2_grid_type':'linear',        # how to space L2 options, must be: 'log' or 'linear'
-        'L2_cre_values':{'Slc17a7-IRES2-Cre':340, 'Vip-IRES-Cre':320,'Sst-IRES-Cre':185, 'Gad2-IRES-Cre': 200}, # Fixed values to use for optimize_by_cre
+        'L2_cre_values':{'Slc17a7-IRES2-Cre':340, 'Vip-IRES-Cre':320,'Sst-IRES-Cre':185, 'Gad2-IRES-Cre': 200, 'Rbp4-Cre_KL100': 340}, # Fixed values to use for optimize_by_cre
         'ophys_experiment_ids':experiment_table.index.values.tolist(),
         'job_settings':job_settings,
         'split_on_engagement': False,   # If True, uses 'engagement_preference' to determine what engagement state to use
