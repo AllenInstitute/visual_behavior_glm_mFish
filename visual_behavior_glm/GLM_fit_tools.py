@@ -434,7 +434,7 @@ def evaluate_models(fit, design, run_params):
         fit['dropouts']['Full']['train_adjvariance_explained'][:] = np.nan 
         fit['dropouts']['Full']['full_model_train_prediction'][:] = np.nan  
         return fit
-    if run_params['L2_use_fixed_value'] or run_params['L2_optimize_by_experiment'] or run_params['L2_optimize_by_cre']:
+    if run_params['L2_use_fixed_value'] or run_params['L2_optimize_by_session'] or run_params['L2_optimize_by_cre']:
         print('Using a constant regularization value across all cells')
         return evaluate_models_same_ridge(fit,design, run_params)
     elif run_params['L2_optimize_by_cell']:
