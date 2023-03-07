@@ -17,15 +17,15 @@ from allensdk.brain_observatory.behavior.behavior_project_cache import VisualBeh
 
 class Database(object):
     '''
-    utilities for connecting to MongoDB databases (mouseseeks or visual_behavior_data)
+    utilities for connecting to MongoDB databases (mouseseeks, visual_behavior_data, or omFish_glm)
 
     parameter:
-      database: defines database to connect to. Can be 'mouseseeks' or 'visual_behavior_data'
+      database: defines database to connect to. Can be 'mouseseeks', 'visual_behavior_data', or 'omFish_glm'
     '''
 
     def __init__(self, database, ):
         # get database ip/port info from a text file on the network (maybe not a good idea to commit it)
-        db_info_filepath = '//allen/programs/braintv/workgroups/nc-ophys/visual_behavior/mongo_db_info.yml'
+        db_info_filepath = '//allen/programs/braintv/workgroups/nc-ophys/omFish_glm/mongo_db_info.yml'
         with open(db_info_filepath, 'r') as stream:
             db_info = yaml.safe_load(stream)
 
@@ -91,8 +91,8 @@ def get_behavior_data(table_name, session_id=None, id_type='behavior_session_uui
 
         all = a dictionary with each of the above table names as a key and the associated table as the value
     '''
-    db = Database('visual_behavior_data')
-    session_id, id_type = _check_name_schema('visual_behavior_data', session_id, id_type)
+    db = Database('omFish_glm') # this will error out because omFish_glm database has not been established yet, ira 23.02.14
+    session_id, id_type = _check_name_schema('omFish_glm', session_id, id_type)
     nested_tables = ['time', 'running', 'licks', 'rewards', 'visual_stimuli', 'omitted_stimuli']
     nested_dicts = ['metadata', 'log']
 
@@ -137,7 +137,7 @@ def _get_table(db, table_name, session_id=None, id_type='behavior_session_uuid',
         `time` has an unlabeled column - label it
         `running` is missing time data, which was done to reduce storage space. Merge time back in
     '''
-    session_id, id_type = _check_name_schema('visual_behavior_data', session_id, id_type)
+    session_id, id_type = _check_name_schema('omFish_glm', session_id, id_type)
     if return_as == 'dataframe':
         res = pd.DataFrame(list(db[db_name][table_name].find({id_type: session_id}))[0]['data'])
     else:
@@ -155,7 +155,7 @@ def _get_trials(db, table_name, session_id=None, id_type='behavior_session_uuid'
     '''
     get trials table for a given session
     '''
-    session_id, id_type = _check_name_schema('visual_behavior_data', session_id, id_type)
+    session_id, id_type = _check_name_schema('omFish_glm', session_id, id_type)
     return pd.DataFrame(list(db[db_name][table_name].find({id_type: session_id})))
 
 
@@ -164,7 +164,7 @@ def get_behavior_session_summary(exclude_error_sessions=True):
     a convenience function to get the summary dataframe from the visual behavior database
     by default: sessions that VBA could not load are excluded
     '''
-    vb = Database('visual_behavior_data')
+    vb = Database('omFish_glm')
     summary = vb.query('behavior_data', 'summary')
     if exclude_error_sessions:
         # missing values imply false, but are returned as NaN. Cast to float, then filter out ones:
@@ -430,7 +430,7 @@ def add_behavior_record(behavior_session_uuid=None, pkl_path=None, overwrite=Fal
         insert_summary_row(summary)
 
     if db_connection is None:
-        db_conn = Database('visual_behavior_data')
+        db_conn = Database('omFish_glm')
         db = db_conn[db_name]
     else:
         db = db_connection
@@ -519,7 +519,7 @@ def add_behavior_record(behavior_session_uuid=None, pkl_path=None, overwrite=Fal
         db_conn.close()
 
 
-def get_manifest(server='visual_behavior_data'):
+def get_manifest(server='omFish_glm'):
     '''
     convenience function to get full manifest
     '''
@@ -746,7 +746,7 @@ def log_cell_dff_data(record):
     if record exists for roi_id and cell_specimen_id has changed, will add old cell_specimen_id to list 'previous_cell_specimen_ids'
     returns None
     '''
-    db_conn = Database('visual_behavior_data')
+    db_conn = Database('omFish_glm')
     collection = db_conn['ophys_data']['dff_summary']
     existing_record = collection.find_one({'cell_roi_id': record['cell_roi_id']})
 
@@ -797,7 +797,7 @@ def get_cell_dff_data(search_dict={}, return_id=False):
                 max: max of dff vector
                 25%, 50%, 75%: lower, middle (median) and upper quartile values
     '''
-    db_conn = Database('visual_behavior_data')
+    db_conn = Database('omFish_glm')
     collection = db_conn['ophys_data']['dff_summary']
     res = pd.DataFrame(list(collection.find(search_dict)))
     db_conn.close()
@@ -811,14 +811,14 @@ def get_cell_dff_data(search_dict={}, return_id=False):
 
     return res
 
-def get_mFish_experiment_table(project_codes = ['omFISHCux2Meso', 'LearningmFISHTask1A', 'LearningmFISHDevelopment'], pass_only = False):
+def get_mFish_experiment_table(project_codes = ['omFish_glmCux2Meso', 'LearningmFISHTask1A', 'LearningmFISHDevelopment'], pass_only = False):
     ''' Returns ophys experiment table from lims for mFish learning project'''
     cache = VisualBehaviorOphysProjectCache.from_lims()
     ophys_experiment_table = cache.get_ophys_experiment_table(passed_only=pass_only)
     ophys_experiment_table = ophys_experiment_table[ophys_experiment_table['project_code'].isin(project_codes )]
     return ophys_experiment_table
 
-def get_cells_table(project_codes = ['omFISHCux2Meso', 'LearningmFISHTask1A', 'LearningmFISHDevelopment'], pass_only = False)
+def get_cells_table(project_codes = ['omFish_glmCux2Meso', 'LearningmFISHTask1A', 'LearningmFISHDevelopment'], pass_only = False):
     ''' Returns cells table from lims for mFish learning project'''
     cells_table = cache.get_ophys_cells_table()
     oeids = get_mFish_experiment_table(project_codes, pass_only).index_values
