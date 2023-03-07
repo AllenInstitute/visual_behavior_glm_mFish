@@ -51,7 +51,7 @@ def log_error(error_dict, keys_to_check = []):
     '''
     logs contents of error_dict to the `error_logs` collection in the `ophys_glm` mongo database
     '''
-    conn=db.Database('visual_behavior_data') #establishes connection
+    conn=db.Database('omFish_glm') #establishes connection
     db.update_or_create(
         collection = conn['ophys_glm']['error_logs'],
         document = db.clean_and_timestamp(error_dict),
@@ -64,7 +64,7 @@ def get_error_log(search_dict = {}):
     searches the mongo error log for all entries matching the search_dict
     if search dict is an empty dict (default), it will return full contents of the kernel_error_log collection
     '''
-    conn=db.Database('visual_behavior_data') #establishes connection
+    conn=db.Database('omFish_glm') #establishes connection
     result = conn['ophys_glm']['error_logs'].find(search_dict)
     conn.close()
     return pd.DataFrame(list(result))
@@ -273,7 +273,7 @@ def already_fit(oeid, version):
     check the weight_matrix_lookup_table to see if an oeid/glm_version combination has already been fit
     returns a boolean
     '''
-    conn = db.Database('visual_behavior_data')
+    conn = db.Database('omFish_glm')
     coll = conn['ophys_glm']['weight_matrix_lookup_table']
     document_count = coll.count_documents({'ophys_experiment_id':int(oeid), 'glm_version':str(version)})
     conn.close()
@@ -297,7 +297,7 @@ def log_results_to_mongo(glm):
     full_results['ophys_experiment_id'] = glm.ophys_experiment_id
     full_results['ophys_session_id'] = glm.ophys_session_id
 
-    conn = db.Database('visual_behavior_data')
+    conn = db.Database('omFish_glm')
 
     keys_to_check = {
         'results_full':['ophys_experiment_id','cell_specimen_id','glm_version'],
@@ -321,7 +321,7 @@ def xarray_to_mongo(xarray):
     writes xarray to the 'ophys_glm_xarrays' database in mongo
     returns _id of xarray in the 'ophys_glm_xarrays' database
     '''
-    conn = db.Database('visual_behavior_data')
+    conn = db.Database('omFish_glm')
     w_matrix_database = conn['ophys_glm_xarrays']
     xdb = xarray_mongodb.XarrayMongoDB(w_matrix_database)
     _id, _ = xdb.put(xarray)
@@ -332,7 +332,7 @@ def get_weights_matrix_from_mongo(ophys_experiment_id, glm_version):
     retrieves weights matrix from mongo for a given oeid/glm_version
     throws warning and returns None if no matrix can be found
     '''
-    conn = db.Database('visual_behavior_data')
+    conn = db.Database('omFish_glm')
     lookup_table_document = {
         'ophys_experiment_id':ophys_experiment_id,
         'glm_version':glm_version,
@@ -366,7 +366,7 @@ def log_weights_matrix_to_mongo(glm):
         None
     '''
 
-    conn = db.Database('visual_behavior_data')
+    conn = db.Database('omFish_glm')
     lookup_table_document = {
         'ophys_experiment_id':int(glm.ophys_experiment_id),
         'glm_version':glm.version,
@@ -456,7 +456,7 @@ def get_stdout_summary(glm_version):
     '''
     retrieves statistics about a given model run from mongo
     '''
-    conn = db.Database('visual_behavior_data')
+    conn = db.Database('omFish_glm')
     collection = conn['ophys_glm']['cluster_stdout']
     stdout_summary = pd.DataFrame(list(collection.find({'glm_version':glm_version})))
     conn.close()
@@ -517,7 +517,7 @@ def retrieve_results(search_dict={}, results_type='full', return_list=None, merg
 
     if verbose:
         print('Pulling from Mongo')
-    conn = db.Database('visual_behavior_data')
+    conn = db.Database('omFish_glm')
     database = 'ophys_glm'
     results = pd.DataFrame(list(conn[database]['results_{}'.format(results_type)].find(search_dict, return_dict)))
 
