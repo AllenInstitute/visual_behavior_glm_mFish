@@ -9,7 +9,9 @@ import matplotlib.pyplot as plt
 import visual_behavior.data_access.loading as loading
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-filedir = '//allen/programs/braintv/workgroups/nc-ophys/visual_behavior/ophys_glm/v_24_events_all_L2_optimize_by_session/figures/clustering/'
+version = 'v_testing_01'
+folder = 'clustering'
+filedir = '//allen/programs/braintv/workgroups/nc-ophys/omFish_glm/ophys_glm/'+version+'/'+folder+'/'
 
 def compare_stats(num_shuffles=1000):
     plt.figure()
