@@ -1,9 +1,18 @@
+import pickle
+import os
 import numpy as np
 import pandas as pd
 from scipy.stats import chisquare
 from scipy.stats import chi2_contingency
 from scipy.stats import power_divergence
 from scipy.stats import fisher_exact
+from scipy.stats import sem
+from scipy.sparse import csgraph
+
+# for clustering
+from sklearn.metrics import pairwise_distances
+from sklearn.cluster import SpectralClustering
+
 # import FisherExact (Used for non2x2 tables of Fisher Exact test, not used but leaving a note)
 import matplotlib.pyplot as plt
 import visual_behavior.data_access.loading as loading
@@ -455,7 +464,315 @@ def add_hochberg_correction(table,test='chi_squared_'):
     
     # reset order of table and return
     return table.sort_values(by='cluster_id').set_index('cluster_id') 
+
+    
+def shuffle_dropout_score(feature_matrix, shuffle_type='all'):
+    '''
+    Shuffles dataframe with dropout scores from GLM.
+    shuffle_type: str, default='all', other options= 'experience', 'regressors', 'experience_within_cell',
+                        'full_experience'
+
+    Returns:
+        df_shuffled (pd. Dataframe) of shuffled dropout scores
+    '''
+    df_shuffled = feature_matrix.copy()
+    regressors = feature_matrix.columns.levels[0].values
+    experience_levels = feature_matrix.columns.levels[1].values
+    if shuffle_type == 'all':
+        print('shuffling all data')
+        for column in feature_matrix.columns:
+            df_shuffled[column] = feature_matrix[column].sample(frac=1).values
+
+    elif shuffle_type == 'experience':
+        print('shuffling data across experience')
+        assert np.shape(feature_matrix.columns.levels)[
+            0] == 2, 'df should have two level column structure, 1 - regressors, 2 - experience'
+        for experience_level in experience_levels:
+            randomized_cids = feature_matrix.sample(frac=1).index.values
+            for i, cid in enumerate(randomized_cids):
+                for regressor in regressors:
+                    df_shuffled.iloc[i][(regressor, experience_level)] = feature_matrix.loc[cid][(regressor, experience_level)]
+
+    elif shuffle_type == 'regressors':
+        print('shuffling data across regressors')
+        assert np.shape(feature_matrix.columns.levels)[
+            0] == 2, 'df should have two level column structure, 1 - regressors, 2 - experience'
+        for regressor in regressors:
+            randomized_cids = feature_matrix.sample(frac=1).index.values
+            for i, cid in enumerate(randomized_cids):
+                for experience_level in experience_levels:
+                    df_shuffled.iloc[i][(regressor, experience_level)] = feature_matrix.loc[cid][(regressor, experience_level)]
+
+    elif shuffle_type == 'experience_within_cell':
+        print('shuffling data across experience within each cell')
+        cids = feature_matrix.index.values
+        experience_level_shuffled = experience_levels.copy()
+        for cid in cids:
+            np.random.shuffle(experience_level_shuffled)
+            for j, experience_level in enumerate(experience_level_shuffled):
+                for regressor in regressors:
+                    df_shuffled.loc[cid][(regressor, experience_levels[j])] = feature_matrix.loc[cid][(regressor,
+                                                                                                   experience_level)]
+    elif shuffle_type == 'full_experience':
+        print('shuffling data across experience fully (cell id and experience level)')
+        assert np.shape(feature_matrix.columns.levels)[
+            0] == 2, 'df should have two level column structure, 1 - regressors, 2 - experience'
+        # Shuffle cell ids first
+        for experience_level in experience_levels:
+            randomized_cids = feature_matrix.sample(frac=1).index.values
+            for i, cid in enumerate(randomized_cids):
+                for regressor in regressors:
+                    df_shuffled.iloc[i][(regressor, experience_level)] = feature_matrix.loc[cid][
+                        (regressor, experience_level)]
+        # Shuffle experience labels
+        df_shuffled_again = df_shuffled.copy(deep=True)
+        cids = df_shuffled.index.values
+        experience_level_shuffled = experience_levels.copy()
+        for cid in cids:
+            np.random.shuffle(experience_level_shuffled)
+            for j, experience_level in enumerate(experience_level_shuffled):
+                for regressor in regressors:
+                    df_shuffled_again.loc[cid][(regressor, experience_levels[j])] = df_shuffled.loc[cid][(regressor,
+                                                                                                          experience_level)]
+
+        df_shuffled = df_shuffled_again.copy()
+
+    else:
+        print('no such shuffle type..')
+        df_shuffled = None
+    return df_shuffled
  
 
 # Funcltions below were moved from visual behavior analysis repo
 
+def save_clustering_results(data, filename_string='', path=None):
+    '''
+    for HCP scripts to save output of spectral clustering in a specific folder
+    input:
+        data: what to save
+        filename_string: name of the file, use as descriptive info as possible
+        path: where to save the file, default is the files folder in the same directory as this file
+
+    return:
+        nothing, just saves the file
+    '''
+    if path is None:
+        path = filedir+'/files'
+    if os.path.exists(path) is False:
+        os.mkdir(path)
+
+    filename = os.path.join(path, '{}'.format(filename_string))
+    with open(filename, 'wb') as f:
+        pickle.dump(data, f)
+    f.close()
+
+def get_features_for_clustering():
+    """
+    get GLM features to use for clustering analysis
+    """
+    features = ['all-images', 'omissions', 'behavioral', 'task']
+    return features
+
+def get_cell_metadata_for_feature_matrix(feature_matrix, cells_table):
+    """
+    get a dataframe of cell metadata for all cells in feature_matrix
+    limits ophys_cells_table to cell_specimen_ids present in feature_matrix,
+    drops duplicates and sets cell_specimen_id as index
+    returns dataframe with cells as indices and metadata as columns
+    """
+    # get metadata for cells in matched cells df
+    cell_metadata = cells_table[cells_table.cell_specimen_id.isin(feature_matrix.index.values)]
+    cell_metadata = cell_metadata.drop_duplicates(subset='cell_specimen_id')
+    cell_metadata = cell_metadata.set_index('cell_specimen_id')
+    print(len(cell_metadata), 'cells in cell_metadata for feature_matrix')
+    return cell_metadata
+
+def get_cre_lines(cell_metadata):
+    """
+    get list of cre lines in cell_metadata and sorts them alphabetically
+    cell_metadata is a table similar to ophys_cells_table from SDK but can have additional columns based on clustering results
+    """
+    cre_lines = np.sort(cell_metadata.cre_line.unique())
+    return cre_lines
+
+## finding optimal number of clusters
+
+def compute_inertia(a, X, metric='euclidean'):
+    W = [np.mean(pairwise_distances(X[a == c, :], metric=metric)) for c in np.unique(a)]
+    return np.mean(W)
+
+def compute_gap(clustering, data, k_max=5, n_boots=20, reference_shuffle='all', metric='euclidean'):
+    '''
+    Computes gap statistic between clustered data (ondata inertia) and null hypothesis (reference intertia).
+    input:
+        clustering: clustering object that includes "n_clusters" and "fit_predict"
+        data: an array of data to be clustered (n samples by n features)
+        k_max: (int) maximum number of clusters to test, starts at 1
+        n_boots: (int) number of repetitions for computing mean inertias
+        reference: (str) what type of shuffle to use, shuffle_dropout_scores,
+            None is use random normal distribution
+        metric: (str) type of distance to use, default = 'euclidean'
+    :return:
+        gap_statistics: df of gap statistics metrics
+    '''
+
+    if len(data.shape) == 1:
+        data = data.reshape(-1, 1)
+
+    if isinstance(data, pd.core.frame.DataFrame):
+        data_array = data.values
+    else:
+        data_array = data
+
+    gap_statistics = {}
+    reference_inertia = []
+    reference_sem = []
+    gap_mean = []
+    gap_sem = []
+    for k in range(1, k_max ):
+        local_ref_inertia = []
+        for _ in range(n_boots):
+            # draw random dist or shuffle for every nboot
+            if reference_shuffle is None:
+                reference = np.random.rand(*data.shape) * -1
+            else:
+                reference_df = shuffle_dropout_score(data, shuffle_type=reference_shuffle)
+                reference = reference_df.values
+
+            clustering.n_clusters = k
+            assignments = clustering.fit_predict(reference)
+            local_ref_inertia.append(compute_inertia(assignments, reference, metric=metric))
+        reference_inertia.append(np.mean(local_ref_inertia))
+        reference_sem.append(sem(local_ref_inertia))
+
+    ondata_inertia = []
+    ondata_sem = []
+    for k in range(1, k_max ):
+        local_ondata_inertia = []
+        for _ in range(n_boots):
+            clustering.n_clusters = k
+            assignments = clustering.fit_predict(data_array)
+            local_ondata_inertia.append(compute_inertia(assignments, data_array, metric=metric))
+        ondata_inertia.append(np.mean(local_ondata_inertia))
+        ondata_sem.append(sem(local_ondata_inertia))
+
+        # compute difference before mean
+        gap_mean.append(np.mean(np.subtract(np.log(local_ondata_inertia), np.log(local_ref_inertia))))
+        gap_sem.append(sem(np.subtract(np.log(local_ondata_inertia), np.log(local_ref_inertia))))
+
+    # maybe plotting error bars with this metric would be helpful but for now I'll leave it
+    gap = np.log(reference_inertia) - np.log(ondata_inertia)
+
+    # we potentially do not need all of this info but saving it to plot it for now
+    gap_statistics['gap'] = gap
+    gap_statistics['reference_inertia'] = np.log(reference_inertia)
+    gap_statistics['ondata_inertia'] = np.log(ondata_inertia)
+    gap_statistics['reference_sem'] = reference_sem
+    gap_statistics['ondata_sem'] = ondata_sem
+    gap_statistics['gap_mean'] = gap_mean
+    gap_statistics['gap_sem'] = gap_sem
+
+    return gap_statistics
+
+
+def get_eigenDecomposition(A, max_n_clusters=25):
+    """
+    Input:
+        A: Affinity matrix from spectral clustering
+        max_n_clusters
+
+    :return A tuple containing:
+    - the optimal number of clusters by eigengap heuristic
+    - all eigen values
+    - all eigen vectors
+
+    This method performs the eigen decomposition on a given affinity matrix,
+    following the steps recommended in the paper:
+    1. Construct the normalized laplacian matrix: L = D−1/2ADˆ −1/2.
+    2. Find the eigenvalues and their associated eigen vectors
+    3. Identify the maximum gap which corresponds to the number of clusters
+    by eigengap heuristic
+
+    References:
+    https://papers.nips.cc/paper/2619-self-tuning-spectral-clustering.pdf
+    """
+    L = csgraph.laplacian(A, normed=True)
+    # n_components = A.shape[0]
+    eigenvalues, eigenvectors = np.linalg.eigh(L)
+
+    # Identify the optimal number of clusters as the index corresponding
+    # to the larger gap between eigen values
+    index_largest_gap = np.argsort(np.diff(eigenvalues))[::-1][:max_n_clusters]
+    nb_clusters = index_largest_gap + 1
+
+    return eigenvalues, eigenvectors, nb_clusters
+
+
+def load_gap_statistic(glm_version, feature_matrix, cre_line='', save_dir=None,
+                       metric='euclidean', shuffle_type='all', k_max=25, n_boots=20):
+    """
+       if gap statistic was computed and file exists in save_dir, load it
+       otherwise run spectral clustering n_boots times, for a range of 1 to k_max clusters
+       returns dictionary of gap_statistic for each cre line
+        shuffle_type is an input to shuffle_dropout_score function, which is used as a null hypothesis or reference data
+        metric is distance metric used for in compute gap function
+       """
+    gap_filename = 'gap_cores_' + cre_line + '_' + metric + '_' + glm_version + '_' + shuffle_type + 'kmax' + str(k_max) + '_' + 'nb' + str(n_boots) + '.pkl'
+    gap_path = os.path.join(save_dir, gap_filename)
+    if os.path.exists(gap_path):
+        print('loading gap statistic scores from', gap_path)
+        with open(gap_path, 'rb') as f:
+            gap_statistic = pickle.load(f)
+            f.close()
+        print('done.')
+    else:
+        gap_statistic = {}
+        X = feature_matrix.values
+        feature_matrix_shuffled = shuffle_dropout_score(feature_matrix, shuffle_type=shuffle_type)
+        reference = feature_matrix_shuffled.values
+        # create an instance of Spectral clustering object
+        sc = SpectralClustering()
+        gap, reference_inertia, ondata_inertia = compute_gap(sc, X, k_max=k_max, reference=reference, metric=metric, n_boots=n_boots)
+        gap_statistic['gap'] = gap, 
+        gap_statistic['reference_inertia'] = reference_inertia,
+        gap_statistic['ondata_inertia'] = ondata_inertia,
+        if save_dir is None:
+            save_dir = filedir
+        save_clustering_results(gap_statistic, filename_string=gap_filename, path=save_dir)
+    return gap_statistic
+
+def load_eigengap(feature_matrix, version=version, k_max=25, cre_line=None, save_dir=None, ):
+    """
+        if eigengap values were computed and file exists in save_dir, load it
+        otherwise run get_eigenDecomposition for a range of 1 to k_max clusters
+        returns dictionary of eigengap for each cre line = [nb_clusters, eigenvalues, eigenvectors]
+        # this doesnt actually take too long, so might not be a huge need to save files besides records
+           """
+
+    
+    eigengap_filename = 'eigengap_' + version + '_' + 'kmax' + str(k_max) + '.pkl'
+    eigengap_path = os.path.join(save_dir, eigengap_filename)
+    if os.path.exists(eigengap_path):
+        print('loading eigengap values scores from', eigengap_path)
+        with open(eigengap_path, 'rb') as f:
+            eigengap = pickle.load(f)
+            f.close()
+        print('done.')
+    else:
+        eigengap = {} #dictionary
+        X = feature_matrix.values
+        sc = SpectralClustering(2)  # N of clusters does not impact affinity matrix
+        # but you can obtain affinity matrix only after fitting, thus some N of clusters must be provided.
+        sc.fit(X)
+        A = sc.affinity_matrix_
+        eigenvalues, eigenvectors, nb_clusters = get_eigenDecomposition(A, max_n_clusters=k_max)
+        eigengap['nb_clusters'] = nb_clusters, 
+        eigengap['eigenvalues'] = eigenvalues,
+        eigengap['eigenvectors'] = eigenvectors,
+
+        if save_dir is None:
+            save_dir = filedir
+
+        save_clustering_results(eigengap, filename_string=eigengap_filename, path=save_dir)
+
+    return eigengap
