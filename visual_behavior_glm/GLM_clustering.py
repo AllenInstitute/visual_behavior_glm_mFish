@@ -427,6 +427,9 @@ def mapper(cre):
         'Slc17a7-IRES2-Cre':'Excitatory',
         'Sst-IRES-Cre':'Sst',
         'Vip-IRES-Cre':'Vip',
+        'Gad2-IRES-Cre': 'Inhibitory',
+        'Rbp4-Cre_KL100': 'Rbp4',
+        'Cux2-CreERT2': 'Cux2',
         }
     return mapper[cre]
 
@@ -453,4 +456,6 @@ def add_hochberg_correction(table,test='chi_squared_'):
     # reset order of table and return
     return table.sort_values(by='cluster_id').set_index('cluster_id') 
  
+
+# Funcltions below were moved from visual behavior analysis repo
 
