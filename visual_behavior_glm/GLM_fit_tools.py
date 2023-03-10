@@ -1938,6 +1938,52 @@ def get_ophys_frames_to_use(experiment, end_buffer=0.5,stim_dur = 0.25):
     )
     return ophys_frames_to_use
 
+def load_oasis_events_h5_to_df(h5_path= None, oeid=None):
+    """Load h5 file from new_dff module
+    This is a temporary hack, until AllenSDK experiment object is updated
+    Parameters
+    ----------
+    h5_path : str
+        Path to h5 file
+    oeid : int
+
+    Returns
+    -------
+    """
+    from allensdk.brain_observatory.behavior.event_detection import filter_events_array 
+    import h5py
+
+    filter_scale_seconds = 2
+    frame_rate_hz = 10.7
+    filter_n_time_steps = 20
+    if h5_path is None:
+        h5_path = '//allen/programs/mindscope/workgroups/learning/pipeline_validation/events/oasis_v1'
+    filename = os.path.join(h5_path, f'{oeid}.h5')
+
+    with h5py.File(filename, 'r') as f:
+        h5 = {}
+        for key in f.keys():
+            h5[key] = f[key][()]
+
+    events = np.array(h5['spikes'])
+
+    filtered_events = filter_events_array(
+                    arr=events,
+                    scale=filter_scale_seconds*frame_rate_hz,
+            n_time_steps=filter_n_time_steps)
+
+    dl = [[d] for d in events]
+    fe = [[fe] for fe in filtered_events]
+    df = pd.DataFrame(dl).rename(columns={0: 'events'})
+    df['cell_roi_id'] = h5['cell_roi_id']
+    df['filtered_events'] = np.array(fe)
+
+
+    # columsn order 
+    df = df[['cell_roi_id', 'events', 'filtered_events']]
+
+    return df
+
 def get_events_arr(experiment, timestamps_to_use):
     '''
     Get the events traces from a experiment in xarray format (preserves cell ids and timestamps)
@@ -1945,7 +1991,17 @@ def get_events_arr(experiment, timestamps_to_use):
     timestamps_to_use is a boolean vector that contains which timestamps to use in the analysis
     '''
     # Get events and trim off ends
-    all_events = np.stack(experiment.events['filtered_events'].values)
+    
+    try:
+        events_df = load_oasis_events_h5_to_df(h5_path=None, oeid=experiment.ophys_experiment_id)
+        events_df.set_index('cell_roi_id', inplace=True)
+        rois = experiment.events['cell_roi_id'].values
+        events_df = events_df.loc[rois]
+        all_events = np.stack(events_df['filtered_events'].values)
+    except:
+        print('!!! Did not find new events, trying to use old events...')
+        all_events = np.stack(experiment.events['filtered_events'].values)
+    
     all_events_to_use = all_events[:, timestamps_to_use]
 
     # Get the timestamps
