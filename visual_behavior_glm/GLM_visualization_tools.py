@@ -578,7 +578,8 @@ def var_explained_matched(results_pivoted, run_params):
     mapper = {
         'Slc17a7-IRES2-Cre':'Excitatory',
         'Sst-IRES-Cre':'Sst Inhibitory',
-        'Vip-IRES-Cre':'Vip Inhibitory'
+        'Vip-IRES-Cre':'Vip Inhibitory',
+        'Gad2-IRES-Cre':'Gad2 Inhibitory',
         }
     results_pivoted['cell_type'] = [mapper[x] for x in results_pivoted['cre_line']]
     results_pivoted['variance_explained_percent'] = results_pivoted['variance_explained_full']*100
@@ -638,7 +639,8 @@ def var_explained_by_experience(results_pivoted, run_params,threshold = 0,savefi
     mapper = {
         'Slc17a7-IRES2-Cre':'Excitatory',
         'Sst-IRES-Cre':'Sst Inhibitory',
-        'Vip-IRES-Cre':'Vip Inhibitory'
+        'Vip-IRES-Cre':'Vip Inhibitory',
+        'Gad2-IRES-Cre':'Gad2 Inhibitory',
         }
     results_pivoted['cell_type'] = [mapper[x] for x in results_pivoted['cre_line']]
     results_pivoted['variance_explained_percent'] = results_pivoted['variance_explained_full']*100
@@ -1944,7 +1946,8 @@ def plot_kernel_comparison_by_kernel_excitation(weights_df, run_params,kernel,sa
     mapper = {
         'Slc17a7-IRES2-Cre':'Excitatory',
         'Sst-IRES-Cre':'Sst Inhibitory',
-        'Vip-IRES-Cre':'Vip Inhibitory'
+        'Vip-IRES-Cre':'Vip Inhibitory',
+        'Gad2-IRES-Cre':'Gad2 Inhibitory',
         }
     nk = kernel.replace('all-','')
 
@@ -2126,6 +2129,7 @@ def plot_kernel_comparison(weights_df, run_params, kernel, save_results=True, dr
         'Slc17a7-IRES2-Cre':'Excitatory',
         'Sst-IRES-Cre':'Sst Inhibitory',
         'Vip-IRES-Cre':'Vip Inhibitory',
+        'Gad2-IRES-Cre':'Gad2 Inhibitory',
         'Familiar':'Familiar',
         'Novel 1':'Novel',
         'Novel >1':'Novel +'
@@ -2155,6 +2159,7 @@ def plot_kernel_comparison(weights_df, run_params, kernel, save_results=True, dr
             'Slc17a7-IRES2-Cre':'Excitatory',
             'Sst-IRES-Cre':'Sst Inhibitory',
             'Vip-IRES-Cre':'Vip Inhibitory',
+            'Gad2-IRES-Cre':'Gad2 Inhibitory',
             'Familiar':'Familiar',
             'Novel 1':'Novel',
             'Novel >1':'Novel +'
@@ -5669,7 +5674,8 @@ def depth_heatmap(weights_df, run_params,metric='omission_responsive',just_codin
     mapper = {
         'Slc17a7-IRES2-Cre':'Excitatory',
         'Sst-IRES-Cre':'Sst Inhibitory',
-        'Vip-IRES-Cre':'Vip Inhibitory'
+        'Vip-IRES-Cre':'Vip Inhibitory',
+        'Gad2-IRES-Cre':'Gad2 Inhibitory',
         }
 
     fig, ax = plt.subplots(2,3,figsize=(12,8))
