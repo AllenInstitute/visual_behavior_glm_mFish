@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as  np
 
 from simple_slurm import Slurm
-import visual_behavior.database as db
+import visual_behavior_glm.database as db
 import visual_behavior_glm.GLM_across_session as gas
 
 parser = argparse.ArgumentParser(description='deploy glm fits to cluster')
