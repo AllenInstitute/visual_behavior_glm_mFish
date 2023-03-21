@@ -6,13 +6,15 @@ import pandas as pd
 import numpy as  np
 
 import visual_behavior_glm.GLM_params as glm_params
+import visual_behavior_glm.GLM_fit_tools as gft
 from simple_slurm import Slurm
-import visual_behavior.database as db
-from allensdk.brain_observatory.behavior.behavior_project_cache import VisualBehaviorOphysProjectCache
+import visual_behavior_glm.database as db
+from brain_observatory_analysis.ophys.experiment_loading import start_lamf_analysis
+# from allensdk.brain_observatory.behavior.behavior_project_cache import VisualBehaviorOphysProjectCache
 # from mindscope_qc.data_access import behavior_ophys_experiment_dev as BOE_dev
 
 parser = argparse.ArgumentParser(description='deploy glm fits to cluster')
-parser.add_argument('--env-path', type=str, default='visual_behavior', metavar='path to conda environment to use')
+parser.add_argument('--env-path', type=str, default='mfish_glm', metavar='path to conda environment to use')
 parser.add_argument('--version', type=str, default='0', metavar='glm version')
 parser.add_argument(
     '--src-path', 
@@ -135,7 +137,7 @@ if __name__ == "__main__":
     print('python executable = {}'.format(python_executable))
     python_file = "{}/scripts/fit_glm.py".format(args.src_path)
 
-    stdout_basedir = "/allen/programs/braintv/workgroups/nc-ophys/omFish_glm/ophys_glm"
+    stdout_basedir = "//allen/programs/braintv/workgroups/nc-ophys/omFish_glm/ophys_glm"
     stdout_location = os.path.join(stdout_basedir, 'job_records_{}'.format(args.version))
     if not os.path.exists(stdout_location):
         print('making folder {}'.format(stdout_location))
@@ -152,12 +154,15 @@ if __name__ == "__main__":
         print('{} experiments to restart'.format(len(experiments_table)))
     else:
        
-        cache = VisualBehaviorOphysProjectCache.from_lims()
-        experiments_table = cache.get_ophys_experiment_table()
+        # cache = VisualBehaviorOphysProjectCache.from_lims()
+        # experiments_table = cache.get_ophys_experiment_table()
+        experiments_table = start_lamf_analysis()
 
         run_params = glm_params.load_run_json(args.version)
-        projects = ['omFISHCux2Meso', 'LearningmFISHTask1A', 'LearningmFISHDevelopment']
-        experiments_table = experiments_table[(experiments_table.cre_line=='Gad2-IRES-Cre') & (experiment_table.project_code.isin(projects))]
+        projects = gft.define_project_codes()
+        cre_lines = gft.define_cre_lines()
+        experiments_table = experiments_table[(experiments_table.cre_line.isin(cre_lines)) & 
+                                              (experiments_table.project_code.isin(projects))]
         # if run_params['include_4x2_data']:
         #     print('including 4x2 data')
         #     experiments_table = experiments_table[(experiments_table.reporter_line!="Ai94(TITL-GCaMP6s)")].reset_index()      
