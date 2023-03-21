@@ -37,15 +37,18 @@ def load_fit_pkl(run_params, ophys_experiment_id):
     filenamepbz2 = os.path.join(run_params['experiment_output_dir'],str(ophys_experiment_id)+'.pbz2')
 
     if os.path.isfile(filenamepbz2):
+        print(f'loading compressed pickle file {ophys_experiment_id}')
         fit = bz2.BZ2File(filenamepbz2, 'rb')
         fit = cPickle.load(fit)
         return fit
     elif os.path.isfile(filenamepkl):
+        print(f'loading pickle file {ophys_experiment_id}')
         with open(filenamepkl,'rb') as f:
             fit = pickle.load(f)
         return fit
     else:
-        return None
+        KeyError(f'no fit file found for {ophys_experiment_id}')
+        #return None
 
 def log_error(error_dict, keys_to_check = []):
     '''
@@ -484,7 +487,7 @@ def get_roi_count(ophys_experiment_id):
     df = db.lims_query(query)
     return df['valid_roi'].sum()
 
-def retrieve_results(search_dict={}, results_type='full', return_list=None, merge_in_experiment_metadata=True,remove_invalid_rois=True,verbose=False,allow_old_rois=True,invalid_only=False,add_extra_columns=False):
+def retrieve_results(search_dict={}, results_type='full', return_list=None, merge_in_experiment_metadata=True,remove_invalid_rois=False,verbose=False,allow_old_rois=True,invalid_only=False,add_extra_columns=False):
     '''
     gets cached results from mongodb
     input:
@@ -518,6 +521,7 @@ def retrieve_results(search_dict={}, results_type='full', return_list=None, merg
     if verbose:
         print('Pulling from Mongo')
     conn = db.Database('omFish_glm')
+    # conn = db.Database('visual_behavior_data')
     database = 'ophys_glm'
     results = pd.DataFrame(list(conn[database]['results_{}'.format(results_type)].find(search_dict, return_dict)))
 
@@ -564,6 +568,8 @@ def retrieve_results(search_dict={}, results_type='full', return_list=None, merg
             cell_table = cell_table = db.get_cell_table().reset_index()
             good_cell_roi_ids = cell_table.cell_roi_id.unique()
             results = results.query('cell_roi_id not in @good_cell_roi_ids')
+    else:
+        print('using valid and invalid rois ')
 
     
     if ('variance_explained' in results) and (np.sum(results['variance_explained'].isnull()) > 0):

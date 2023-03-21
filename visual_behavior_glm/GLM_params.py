@@ -9,6 +9,7 @@ import shutil
 import visual_behavior_glm.database as db
 
 OUTPUT_DIR_BASE = '//allen/programs/braintv/workgroups/nc-ophys/omFish_glm/ophys_glm'
+# OUTPUT_DIR_BASE = '//allen/programs/braintv/workgroups/nc-ophys/visual_behavior/ophys_glm'
 
 def get_versions(vrange=[15,20]):
     versions = os.listdir(OUTPUT_DIR_BASE)
@@ -26,7 +27,7 @@ def define_kernels():
         'intercept':    {'event':'intercept',   'type':'continuous',    'length':0,     'offset':0,     'num_weights':None, 'dropout':True, 'text': 'constant value'},
         'hits':         {'event':'hit',         'type':'discrete',      'length':2.25,   'offset':0,    'num_weights':None, 'dropout':True, 'text': 'lick to image change'},
         'misses':       {'event':'miss',        'type':'discrete',      'length':2.25,   'offset':0,    'num_weights':None, 'dropout':True, 'text': 'no lick to image change'},
-        'passive_change':   {'event':'passive_change','type':'discrete','length':2.25,   'offset':0,    'num_weights':None, 'dropout':True, 'text': 'passive session image change'},
+        # 'passive_change':   {'event':'passive_change','type':'discrete','length':2.25,   'offset':0,    'num_weights':None, 'dropout':True, 'text': 'passive session image change'},
         #'hits':         {'event':'hit',         'type':'discrete',      'length':.75,   'offset':0,    'num_weights':None, 'dropout':True, 'text': 'lick to image change'},
         #'misses':       {'event':'miss',        'type':'discrete',      'length':.75,   'offset':0,    'num_weights':None, 'dropout':True, 'text': 'no lick to image change'},
         #'passive_change':   {'event':'passive_change','type':'discrete','length':.75,   'offset':0,    'num_weights':None, 'dropout':True, 'text': 'passive session image change'},
@@ -37,6 +38,7 @@ def define_kernels():
         #'omissions':        {'event':'omissions',   'type':'discrete',  'length':0.75,      'offset':0,     'num_weights':None, 'dropout':True, 'text': 'image was omitted'},
         #'post-omissions':   {'event':'omissions',   'type':'discrete',  'length':2.25,   'offset':0.75,  'num_weights':None, 'dropout':True, 'text': 'images after omission'},
         'each-image':   {'event':'each-image',  'type':'discrete',      'length':0.75,  'offset':0,     'num_weights':None, 'dropout':True, 'text': 'image presentation'},
+        # 'each-image':   {'event':'any-image',  'type':'discrete',      'length':0.75,  'offset':0,     'num_weights':None, 'dropout':True, 'text': 'image presentation'},
         'running':      {'event':'running',     'type':'continuous',    'length':2,     'offset':-1,    'num_weights':None, 'dropout':True, 'text': 'normalized running speed'},
         'pupil':        {'event':'pupil',       'type':'continuous',    'length':2,     'offset':-1,    'num_weights':None, 'dropout':True, 'text': 'Z-scored pupil diameter'},
         'licks':        {'event':'licks',       'type':'discrete',      'length':2,     'offset':-1,    'num_weights':None, 'dropout':True, 'text': 'mouse lick'},
@@ -69,7 +71,7 @@ def get_experiment_table(require_model_outputs = False,include_4x2_data=False):
     else:
         return experiments_table
 
-def make_run_json(VERSION,label='',username=None, src_path=None, TESTING=False,update_version=False,include_4x2_data=False):
+def make_run_json(VERSION,label='',username=None, src_path=None, TESTING=False,update_version=False,include_4x2_data=True):
     '''
         Freezes model files, parameters, and ophys experiment ids
         If the model iteration already exists, throws an error unless (update_version=True)
@@ -205,7 +207,7 @@ def make_run_json(VERSION,label='',username=None, src_path=None, TESTING=False,u
         'mean_center_inputs': True,     # If True, mean centers continuous inputs
         'unit_variance_inputs': True,   # If True, continuous inputs have unit variance
         'max_run_speed': 100,           # If 1, has no effect. Scales running speed to be O(1). 
-        'use_events': False,            # If True, use detected events. If False, use raw deltaF/F 
+        'use_events': True,            # If True, use detected events. If False, use raw deltaF/F 
         'include_invalid_rois': False,  # If True, will fit to ROIs deemed invalid by the SDK. Note that the SDK provides dff traces, but not events, for invalid ROISs
         'interpolate_to_stimulus':True, # If True, interpolates the cell activity trace onto stimulus aligned timestamps
         'image_kernel_overlap_tol':5,   # Number of timesteps image kernels are allowed to overlap during entire session.

@@ -20,12 +20,75 @@ from sklearn.linear_model import LassoLarsCV
 from sklearn.linear_model import LassoLars
 from sklearn.linear_model import SGDRegressor
 
+from allensdk.brain_observatory.behavior.behavior_project_cache import \
+    VisualBehaviorOphysProjectCache 
 
 import visual_behavior_glm.GLM_analysis_tools as gat
 from mindscope_qc.data_access import behavior_ophys_experiment_dev as BehaviorOphysExperimentDev
 from brain_observatory_utilities.datasets import behavior # instead of reformat
 # import visual_behavior.data_access.loading as loading
 # import visual_behavior.data_access.reformat as reformat
+
+cache = VisualBehaviorOphysProjectCache.from_lims()
+
+def define_cre_lines():
+    cre_lines=['Gad2_IRES_Cre']
+    return cre_lines
+
+def define_project_codes():
+    project_codes=['omFISHCux2Meso', 'LearningmFISHTask1A', 'LearningmFISHDevelopment']
+    return project_codes
+
+def define_experience_level():
+    experience_level=['Familiar', 'Novel 1', 'Novel >1']
+    return experience_level
+
+def load_ophys_experiment_table(cre_lines=define_cre_lines(), 
+        project_codes=define_project_codes(), 
+        experience_level=define_experience_level()):
+    '''
+        Loads the ophys experiments table for Gad2 data
+    '''
+    experiment_table = cache.get_ophys_experiment_table()
+
+    if not cre_lines:
+        experiment_table = experiment_table[experiment_table.project_code.isin(project_codes)]
+    
+    if  not project_codes:
+        experiment_table = experiment_table[experiment_table.cre_line.isin(cre_lines)]
+        
+    if not experience_level:
+            experiment_table = experiment_table[experiment_table.experience_level.isin(experience_level)]
+
+    return experiment_table
+
+def load_ophys_cell_table(cre_lines=['Gad2_IRES_Cre'], 
+        project_codes=['omFISHCux2Meso', 'LearningmFISHTask1A', 'LearningmFISHDevelopment'], 
+        experience_level=['Familiar', 'Novel 1', 'Novel >1']):
+    '''
+        Loads the ophys experiments table ffor Gad2 data
+    '''
+    experiment_table = load_ophys_experiment_table(cre_lines, project_codes, experience_level)
+    oeids = experiment_table.index.values
+
+    cell_table = cache.get_ophys_cells_table()
+    cell_table = cell_table[cell_table.ophys_experiment_id.isin(oeids)]
+
+    return cell_table
+
+def load_ophys_session_table(cre_lines=['Gad2_IRES_Cre'], 
+        project_codes=['omFISHCux2Meso', 'LearningmFISHTask1A', 'LearningmFISHDevelopment'], 
+        experience_level=['Familiar', 'Novel 1', 'Novel >1']):
+    '''
+        Loads the ophys experiments table for Gad2 data
+    '''
+    experiment_table = load_ophys_experiment_table(cre_lines, project_codes, experience_level)
+    osids = np.unique(experiment_table['ophys_session_id'].values)
+    
+    session_table = cache.get_ophys_session_table()
+    session_table = session_table.loc[osids]
+
+    return session_table
 
 def load_fit_experiment(ophys_experiment_id, run_params):
     '''
@@ -44,6 +107,9 @@ def load_fit_experiment(ophys_experiment_id, run_params):
     '''
     fit = gat.load_fit_pkl(run_params, ophys_experiment_id)
     experiment = load_data(ophys_experiment_id, run_params)
+
+    if fit is None:
+        KeyError('Fit not found for oeid: '+str(ophys_experiment_id))
     
     # num_weights gets populated during stimulus interpolation
     # configuring it here so the design matrix gets re-generated consistently
