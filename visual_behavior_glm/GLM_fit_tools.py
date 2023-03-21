@@ -63,9 +63,9 @@ def load_ophys_experiment_table(cre_lines=define_cre_lines(),
 
     return experiment_table
 
-def load_ophys_cell_table(cre_lines=['Gad2_IRES_Cre'], 
-        project_codes=['omFISHCux2Meso', 'LearningmFISHTask1A', 'LearningmFISHDevelopment'], 
-        experience_level=['Familiar', 'Novel 1', 'Novel >1']):
+def load_ophys_cells_table(cre_lines=define_cre_lines(), 
+        project_codes=define_project_codes(), 
+        experience_level=define_experience_level()):
     '''
         Loads the ophys experiments table ffor Gad2 data
     '''
