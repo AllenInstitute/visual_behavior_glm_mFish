@@ -155,7 +155,7 @@ if __name__ == "__main__":
         print('{} experiments to restart'.format(len(experiments_table)))
     else:
        
-        cache = VisualBehaviorOphysProjectCache.from_lims()
+        # cache = VisualBehaviorOphysProjectCache.from_lims()
         experiments_table = cache.get_ophys_experiment_table()
         # experiments_table = start_lamf_analysis()
         # experiments_table = dst.limit_to_last_familiar_second_novel(experiments_table)
