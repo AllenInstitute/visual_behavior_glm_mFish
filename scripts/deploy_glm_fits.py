@@ -10,6 +10,7 @@ import visual_behavior_glm.GLM_fit_tools as gft
 from simple_slurm import Slurm
 import visual_behavior_glm.database as db
 from brain_observatory_analysis.ophys.experiment_loading import start_lamf_analysis
+from brain_observatory_analysis.dev import data_selection_tools as dst
 # from allensdk.brain_observatory.behavior.behavior_project_cache import VisualBehaviorOphysProjectCache
 # from mindscope_qc.data_access import behavior_ophys_experiment_dev as BOE_dev
 
@@ -157,12 +158,14 @@ if __name__ == "__main__":
         # cache = VisualBehaviorOphysProjectCache.from_lims()
         # experiments_table = cache.get_ophys_experiment_table()
         experiments_table = start_lamf_analysis()
-
+        # experiments_table = dst.limit_to_last_familiar_second_novel(experiments_table)
         run_params = glm_params.load_run_json(args.version)
         projects = gft.define_project_codes()
         cre_lines = gft.define_cre_lines()
+        experience_levels = gft.define_experience_levels()
         experiments_table = experiments_table[(experiments_table.cre_line.isin(cre_lines)) & 
-                                              (experiments_table.project_code.isin(projects))]
+                                              (experiments_table.project_code.isin(projects)) &
+                                               (experiments_table.experience_levels.isin(experience_levels))]
         # if run_params['include_4x2_data']:
         #     print('including 4x2 data')
         #     experiments_table = experiments_table[(experiments_table.reporter_line!="Ai94(TITL-GCaMP6s)")].reset_index()      
