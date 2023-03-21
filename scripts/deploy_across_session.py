@@ -10,7 +10,7 @@ import visual_behavior.database as db
 import visual_behavior_glm.GLM_across_session as gas
 
 parser = argparse.ArgumentParser(description='deploy glm fits to cluster')
-parser.add_argument('--env-path', type=str, default='omFish_glm', metavar='path to conda environment to use')
+parser.add_argument('--env-path', type=str, default='omfish_glm', metavar='path to conda environment to use')
 
 def already_fit(cell_id,glm_version):
     filepath = "//allen/programs/braintv/workgroups/nc-ophys/omFish_glm/ophys_glm/v_"+glm_version+"/across_session/"+str(cell_id)+".csv"
@@ -21,7 +21,7 @@ if __name__ == "__main__":
     python_executable = "{}/bin/python".format(args.env_path)
     print('python executable = {}'.format(python_executable))
     python_file = "//home/iryna.yavorska/code/visual_behavior_glm_mFish/scripts/across_session.py"
-    glm_version = '24_dff_all_L2_optimize_by_session'
+    glm_version = 'testing_04_events'
     stdout_basedir = "//allen/programs/braintv/workgroups/nc-ophys/omFish_glm/ophys_glm"
     stdout_location = os.path.join(stdout_basedir, 'job_records_across_session')
     if not os.path.exists(stdout_location):

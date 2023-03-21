@@ -26,6 +26,7 @@ from allensdk.brain_observatory.behavior.behavior_project_cache import \
 import visual_behavior_glm.GLM_analysis_tools as gat
 from mindscope_qc.data_access import behavior_ophys_experiment_dev as BehaviorOphysExperimentDev
 from brain_observatory_utilities.datasets import behavior # instead of reformat
+from brain_observatory_analysis.ophys.experiment_loading import start_lamf_analysis
 # import visual_behavior.data_access.loading as loading
 # import visual_behavior.data_access.reformat as reformat
 
@@ -36,7 +37,7 @@ def define_cre_lines():
     return cre_lines
 
 def define_project_codes():
-    project_codes=['omFISHCux2Meso', 'LearningmFISHTask1A', 'LearningmFISHDevelopment']
+    project_codes=['LearningmFISHTask1A', 'LearningmFISHDevelopment']
     return project_codes
 
 def define_experience_level():
@@ -49,7 +50,7 @@ def load_ophys_experiment_table(cre_lines=define_cre_lines(),
     '''
         Loads the ophys experiments table for Gad2 data
     '''
-    experiment_table = cache.get_ophys_experiment_table()
+    experiment_table = start_lamf_analysis() #cache.get_ophys_experiment_table()
 
     if not cre_lines:
         experiment_table = experiment_table[experiment_table.project_code.isin(project_codes)]
