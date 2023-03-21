@@ -15,11 +15,11 @@ from brain_observatory_analysis.ophys.experiment_loading import start_lamf_analy
 
 parser = argparse.ArgumentParser(description='deploy glm fits to cluster')
 parser.add_argument('--env-path', type=str, default='mfish_glm', metavar='path to conda environment to use')
-parser.add_argument('--version', type=str, default='0', metavar='glm version')
+parser.add_argument('--version', type=str, default='testing_5_events', metavar='glm version')
 parser.add_argument(
     '--src-path', 
     type=str, 
-    default='',
+    default='/home/iryna.yavorska/code/visual_behavior_glm_mFish',
     metavar='src_path',
     help='folder where code lives'
 )
