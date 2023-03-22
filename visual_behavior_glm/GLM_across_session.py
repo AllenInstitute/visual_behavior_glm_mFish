@@ -10,6 +10,8 @@ import visual_behavior_glm.GLM_fit_tools as gft
 import visual_behavior_glm.GLM_params as glm_params
 import visual_behavior_glm.GLM_visualization_tools as gvt
 
+
+
 def make_across_run_params(glm_version):
     '''
         Makes a dummy dictionary with the figure directory hard coded
@@ -189,7 +191,7 @@ def across_session_normalization(cell_specimen_id, glm_version):
 
     return data, score_df
 
-def get_across_session_data(run_params, cell_specimen_id, cells_table=None):
+def get_across_session_data(run_params, cell_specimen_id):
     '''
         Loads GLM information for each ophys experiment that this cell participated in.
         Very slow, takes about 3 minutes.
@@ -197,10 +199,11 @@ def get_across_session_data(run_params, cell_specimen_id, cells_table=None):
     ## TO do - remove cache, use BOA to load experiment_table
     # Find which experiments this cell was in
     # include_4x2_data = run_params['include_4x2_data']
-    # cells_table = cache.get_ophys_cell_table()
-    # cells_table = cells_table.query('not passive').copy()
+    experiment_table = gft.load_ophys_experiment_table()
+    experiment_table_sel = dst.limit_to_last_familiar_second_novel(experiment_table)
+    cells_table = gft.load_ophys_cells_table()
+    cells_table = dst.limit_to_cell_specimen_ids_matched_in_all_experience_levels(cells_table, experiment_table_sel)
     cells_table = cells_table[cells_table['cell_specimen_id'] == cell_specimen_id]
-    # cells_table = cells_table.query('last_familiar_active or first_novel or second_novel_active')
 
     oeids = cells_table['ophys_experiment_id']
 
