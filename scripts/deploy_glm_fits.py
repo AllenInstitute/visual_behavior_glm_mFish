@@ -165,7 +165,7 @@ if __name__ == "__main__":
         experience_levels = gft.define_experience_levels()
         experiments_table = experiments_table[(experiments_table.cre_line.isin(cre_lines)) & 
                                               (experiments_table.project_code.isin(projects)) &
-                                               (experiments_table.experience_levels.isin(experience_levels))]
+                                               (experiments_table.experience_level.isin(experience_levels))]
         # if run_params['include_4x2_data']:
         #     print('including 4x2 data')
         #     experiments_table = experiments_table[(experiments_table.reporter_line!="Ai94(TITL-GCaMP6s)")].reset_index()      
