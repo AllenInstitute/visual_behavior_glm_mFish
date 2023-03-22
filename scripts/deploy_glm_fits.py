@@ -174,7 +174,7 @@ if __name__ == "__main__":
     print('experiments table loaded')
 
     # get ROI count for each experiment
-    experiments_table.reset_index(inplace=True)
+    experiments_table.reset_index(inplace=True, drop=False)
     experiments_table['roi_count'] = experiments_table['ophys_experiment_id'].map(lambda oeid: get_roi_count(oeid))
     print('roi counts extracted')
 
@@ -187,6 +187,7 @@ if __name__ == "__main__":
 
     experiment_ids = experiments_table['ophys_experiment_id'].values
     n_experiment_ids = len(experiment_ids)
+    print(f'number of experiments = {n_experiment_ids}')
 
     for experiment_id in experiment_ids[int(n_experiment_ids * args.job_start_fraction): int(n_experiment_ids * args.job_end_fraction)]:
 
