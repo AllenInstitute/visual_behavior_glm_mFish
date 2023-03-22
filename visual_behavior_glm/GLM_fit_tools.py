@@ -55,8 +55,8 @@ def load_ophys_experiment_table(cre_lines=define_cre_lines(),
     if not cre_lines:
         experiment_table = experiment_table[experiment_table.project_code.isin(project_codes)]
     
-    if  not project_codes:
-        experiment_table = experiment_table[experiment_table.cre_line.isin(cre_lines)]
+    # if  not project_codes:
+    #     experiment_table = experiment_table[experiment_table.cre_line.isin(cre_lines)]
         
     if not experience_level:
             experiment_table = experiment_table[experiment_table.experience_level.isin(experience_level)]
