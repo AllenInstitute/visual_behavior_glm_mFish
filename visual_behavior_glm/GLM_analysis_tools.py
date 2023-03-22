@@ -12,8 +12,10 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 
 import visual_behavior_glm.GLM_params as glm_params
-import visual_behavior.data_access.loading as loading
-import visual_behavior.database as db
+from mindscope_qc.data_access import behavior_ophys_experiment_dev as BehaviorOphysExperimentDev
+
+# import visual_behavior.data_access.loading as loading
+import visual_behavior_glm.database as db
 
 from sklearn.decomposition import PCA
 
@@ -35,21 +37,24 @@ def load_fit_pkl(run_params, ophys_experiment_id):
     filenamepbz2 = os.path.join(run_params['experiment_output_dir'],str(ophys_experiment_id)+'.pbz2')
 
     if os.path.isfile(filenamepbz2):
+        print(f'loading compressed pickle file {ophys_experiment_id}')
         fit = bz2.BZ2File(filenamepbz2, 'rb')
         fit = cPickle.load(fit)
         return fit
     elif os.path.isfile(filenamepkl):
+        print(f'loading pickle file {ophys_experiment_id}')
         with open(filenamepkl,'rb') as f:
             fit = pickle.load(f)
         return fit
     else:
-        return None
+        KeyError(f'no fit file found for {ophys_experiment_id}')
+        #return None
 
 def log_error(error_dict, keys_to_check = []):
     '''
     logs contents of error_dict to the `error_logs` collection in the `ophys_glm` mongo database
     '''
-    conn=db.Database('visual_behavior_data') #establishes connection
+    conn=db.Database('omFish_glm') #establishes connection
     db.update_or_create(
         collection = conn['ophys_glm']['error_logs'],
         document = db.clean_and_timestamp(error_dict),
@@ -62,7 +67,7 @@ def get_error_log(search_dict = {}):
     searches the mongo error log for all entries matching the search_dict
     if search dict is an empty dict (default), it will return full contents of the kernel_error_log collection
     '''
-    conn=db.Database('visual_behavior_data') #establishes connection
+    conn=db.Database('omFish_glm') #establishes connection
     result = conn['ophys_glm']['error_logs'].find(search_dict)
     conn.close()
     return pd.DataFrame(list(result))
@@ -271,7 +276,7 @@ def already_fit(oeid, version):
     check the weight_matrix_lookup_table to see if an oeid/glm_version combination has already been fit
     returns a boolean
     '''
-    conn = db.Database('visual_behavior_data')
+    conn = db.Database('omFish_glm')
     coll = conn['ophys_glm']['weight_matrix_lookup_table']
     document_count = coll.count_documents({'ophys_experiment_id':int(oeid), 'glm_version':str(version)})
     conn.close()
@@ -295,7 +300,7 @@ def log_results_to_mongo(glm):
     full_results['ophys_experiment_id'] = glm.ophys_experiment_id
     full_results['ophys_session_id'] = glm.ophys_session_id
 
-    conn = db.Database('visual_behavior_data')
+    conn = db.Database('omFish_glm')
 
     keys_to_check = {
         'results_full':['ophys_experiment_id','cell_specimen_id','glm_version'],
@@ -319,7 +324,7 @@ def xarray_to_mongo(xarray):
     writes xarray to the 'ophys_glm_xarrays' database in mongo
     returns _id of xarray in the 'ophys_glm_xarrays' database
     '''
-    conn = db.Database('visual_behavior_data')
+    conn = db.Database('omFish_glm')
     w_matrix_database = conn['ophys_glm_xarrays']
     xdb = xarray_mongodb.XarrayMongoDB(w_matrix_database)
     _id, _ = xdb.put(xarray)
@@ -330,7 +335,7 @@ def get_weights_matrix_from_mongo(ophys_experiment_id, glm_version):
     retrieves weights matrix from mongo for a given oeid/glm_version
     throws warning and returns None if no matrix can be found
     '''
-    conn = db.Database('visual_behavior_data')
+    conn = db.Database('omFish_glm')
     lookup_table_document = {
         'ophys_experiment_id':ophys_experiment_id,
         'glm_version':glm_version,
@@ -364,7 +369,7 @@ def log_weights_matrix_to_mongo(glm):
         None
     '''
 
-    conn = db.Database('visual_behavior_data')
+    conn = db.Database('omFish_glm')
     lookup_table_document = {
         'ophys_experiment_id':int(glm.ophys_experiment_id),
         'glm_version':glm.version,
@@ -415,7 +420,7 @@ def get_experiment_table(glm_version, include_4x2_data=False):
     
     Warning: this takes a couple of minutes to run.
     '''
-    experiment_table = loading.get_platform_paper_experiment_table(include_4x2_data=include_4x2_data).reset_index() 
+    experiment_table = df.get_mFish_experiment_table().reset_index()
     dropout_summary = retrieve_results({'glm_version':glm_version}, results_type='summary')
     stdout_summary = get_stdout_summary(glm_version)
 
@@ -454,7 +459,7 @@ def get_stdout_summary(glm_version):
     '''
     retrieves statistics about a given model run from mongo
     '''
-    conn = db.Database('visual_behavior_data')
+    conn = db.Database('omFish_glm')
     collection = conn['ophys_glm']['cluster_stdout']
     stdout_summary = pd.DataFrame(list(collection.find({'glm_version':glm_version})))
     conn.close()
@@ -482,7 +487,7 @@ def get_roi_count(ophys_experiment_id):
     df = db.lims_query(query)
     return df['valid_roi'].sum()
 
-def retrieve_results(search_dict={}, results_type='full', return_list=None, merge_in_experiment_metadata=True,remove_invalid_rois=True,verbose=False,allow_old_rois=True,invalid_only=False,add_extra_columns=False):
+def retrieve_results(search_dict={}, results_type='full', return_list=None, merge_in_experiment_metadata=True,remove_invalid_rois=False,verbose=False,allow_old_rois=True,invalid_only=False,add_extra_columns=False):
     '''
     gets cached results from mongodb
     input:
@@ -515,7 +520,8 @@ def retrieve_results(search_dict={}, results_type='full', return_list=None, merg
 
     if verbose:
         print('Pulling from Mongo')
-    conn = db.Database('visual_behavior_data')
+    conn = db.Database('omFish_glm')
+    # conn = db.Database('visual_behavior_data')
     database = 'ophys_glm'
     results = pd.DataFrame(list(conn[database]['results_{}'.format(results_type)].find(search_dict, return_dict)))
 
@@ -535,7 +541,7 @@ def retrieve_results(search_dict={}, results_type='full', return_list=None, merg
         if verbose:
             print('Merging in experiment metadata')
         # get experiment table, merge in details of each experiment
-        experiment_table = loading.get_platform_paper_experiment_table(add_extra_columns=add_extra_columns, include_4x2_data=include_4x2_data).reset_index() 
+        experiment_table = db.get_mFish_experiment_table().reset_index()
         results = results.merge(
             experiment_table, 
             left_on='ophys_experiment_id',
@@ -549,26 +555,22 @@ def retrieve_results(search_dict={}, results_type='full', return_list=None, merg
     if remove_invalid_rois:
         # get list of rois I like
         if verbose:
-            print('Loading cell table to remove invalid rois')
+            print('remove invalid rois being ingnoored for now ')
         if 'cell_roi_id' in results:
-            cell_table = loading.get_cell_table(platform_paper_only=True,add_extra_columns=False,include_4x2_data=include_4x2_data).reset_index() 
+            cell_table = db.get_cell_table().reset_index()
             good_cell_roi_ids = cell_table.cell_roi_id.unique()
             results = results.query('cell_roi_id in @good_cell_roi_ids')
-        elif allow_old_rois:
-            print('WARNING, cell_roi_id not found in database, I cannot filter for old rois. The returned results could be out of date, or QC failed')
-        else:
-            raise Exception('cell_roi_id not in database, and allow_old_rois=False')
+
     elif invalid_only:
         if verbose:
-            print('Loading cell table to remove valid rois')
+            print('only invalid rois being ignored right now')
         if 'cell_roi_id' in results:
-            cell_table = loading.get_cell_table(platform_paper_only=True,add_extra_columns=False,include_4x2_data=include_4x2_data).reset_index() 
+            cell_table = cell_table = db.get_cell_table().reset_index()
             good_cell_roi_ids = cell_table.cell_roi_id.unique()
             results = results.query('cell_roi_id not in @good_cell_roi_ids')
-        elif allow_old_rois:
-            print('WARNING, cell_roi_id not found in database, I cannot filter for old rois. The returned results could be out of date, or QC failed')
-        else:
-            raise Exception('cell_roi_id not in database, and allow_old_rois=False') 
+    else:
+        print('using valid and invalid rois ')
+
     
     if ('variance_explained' in results) and (np.sum(results['variance_explained'].isnull()) > 0):
         print('Warning! Dropout models with NaN variance explained. This shouldn\'t happen')
@@ -753,7 +755,7 @@ def get_experiment_inventory(results=None):
         results = results_dict['full']
     results = results.set_index(['ophys_experiment_id'])
     
-    experiments_table = loading.get_platform_paper_experiment_table(add_extra_columns=False,include_4x2_data=False)
+    experiments_table = db.get_mFish_experiment_table()
 
     for glm_version in results['glm_version'].unique():
         for oeid in experiments_table.index.values:
@@ -1286,7 +1288,7 @@ def inventory_glm_version(glm_version, valid_rois_only=True, platform_paper_only
     include_4x2_data = run_params['include_4x2_data']
  
     # Get list of cells in the dataset
-    cell_table = loading.get_cell_table(platform_paper_only=platform_paper_only,add_extra_columns=False,include_4x2_data=include_4x2_data).reset_index()
+    cell_table = db.get_cell_table().reset_index()
 
     # get list of rois and experiments we have fit
     total_experiments = glm_results['ophys_experiment_id'].unique()

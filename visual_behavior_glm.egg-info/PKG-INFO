@@ -1,10 +1,9 @@
-Metadata-Version: 1.0
+Metadata-Version: 2.1
 Name: visual-behavior-glm
-Version: 0.0.1
-Summary: GLM for Visual Behavior ophys data
-Home-page: https://github.com/AllenInstitute/visual_behavior_glm
-Author: Alex Piet, Nick Ponvert, Doug Ollerenshaw, Marina Garrett
-Author-email: alex.piet@alleninstitute.org, nick.ponvert@alleninstitute.org, dougo@alleninstitute.org, marinag@alleninstitute.org
+Version: 0.0.2
+Summary: GLM for ophys mFish learning project
+Home-page: https://github.com/yavorska-iryna/visual_behavior_glm_mFish
+Author: Alex Piet, Iryna Yavorska, Matt Davis, Marina Garrett
+Author-email: alex.piet@alleninstitute.org, iryna.yavorska@alleninsitute.org, 'matt.davis@alleninstitue.org', marinag@alleninstitute.org
 License: Allen Institute
-Description: UNKNOWN
-Platform: UNKNOWN
+License-File: LICENSE

@@ -7,6 +7,7 @@ import pandas as pd
 import scipy 
 from tqdm import tqdm
 from copy import copy
+import json
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 from sklearn.linear_model import ElasticNetCV
@@ -19,14 +20,80 @@ from sklearn.linear_model import LassoLarsCV
 from sklearn.linear_model import LassoLars
 from sklearn.linear_model import SGDRegressor
 
+from allensdk.brain_observatory.behavior.behavior_project_cache import \
+    VisualBehaviorOphysProjectCache 
 
 import visual_behavior_glm.GLM_analysis_tools as gat
-import visual_behavior.data_access.loading as loading
-import visual_behavior.data_access.reformat as reformat
+from mindscope_qc.data_access import behavior_ophys_experiment_dev as BehaviorOphysExperimentDev
+from brain_observatory_utilities.datasets import behavior # instead of reformat
+from brain_observatory_analysis.ophys.experiment_loading import start_lamf_analysis
+# import visual_behavior.data_access.loading as loading
+# import visual_behavior.data_access.reformat as reformat
+
+cache = VisualBehaviorOphysProjectCache.from_lims()
+
+def define_cre_lines():
+    cre_lines=['Gad2_IRES_Cre']
+    return cre_lines
+
+def define_project_codes():
+    project_codes=['LearningmFISHTask1A', 'LearningmFISHDevelopment']
+    return project_codes
+
+def define_experience_levels():
+    experience_level=['Familiar', 'Novel 1', 'Novel >1']
+    return experience_level
+
+def load_ophys_experiment_table(cre_lines=define_cre_lines(), 
+        project_codes=define_project_codes(), 
+        experience_level=define_experience_levels()):
+    '''
+        Loads the ophys experiments table for Gad2 data
+    '''
+    experiment_table = start_lamf_analysis() #cache.get_ophys_experiment_table()
+
+    if not cre_lines:
+        experiment_table = experiment_table[experiment_table.project_code.isin(project_codes)]
+    
+    # if  not project_codes:
+    #     experiment_table = experiment_table[experiment_table.cre_line.isin(cre_lines)]
+        
+    if not experience_level:
+            experiment_table = experiment_table[experiment_table.experience_level.isin(experience_level)]
+
+    return experiment_table
+
+def load_ophys_cells_table(cre_lines=define_cre_lines(), 
+        project_codes=define_project_codes(), 
+        experience_level=define_experience_levels()):
+    '''
+        Loads the ophys experiments table ffor Gad2 data
+    '''
+    experiment_table = load_ophys_experiment_table(cre_lines, project_codes, experience_level)
+    oeids = experiment_table.index.values
+
+    cell_table = cache.get_ophys_cells_table()
+    cell_table = cell_table[cell_table.ophys_experiment_id.isin(oeids)]
+
+    return cell_table
+
+def load_ophys_session_table(cre_lines=['Gad2_IRES_Cre'], 
+        project_codes=['omFISHCux2Meso', 'LearningmFISHTask1A', 'LearningmFISHDevelopment'], 
+        experience_level=['Familiar', 'Novel 1', 'Novel >1']):
+    '''
+        Loads the ophys experiments table for Gad2 data
+    '''
+    experiment_table = load_ophys_experiment_table(cre_lines, project_codes, experience_level)
+    osids = np.unique(experiment_table['ophys_session_id'].values)
+    
+    session_table = cache.get_ophys_session_table()
+    session_table = session_table.loc[osids]
+
+    return session_table
 
 def load_fit_experiment(ophys_experiment_id, run_params):
     '''
-        Loads the session data, the fit dictionary and the design matrix for this oeid/run_params
+        Loads the experiment data, the fit dictionary and the design matrix for this oeid/run_params
     
         Will raise a FileNotFound Exception if the fit did not happen    
     
@@ -35,12 +102,15 @@ def load_fit_experiment(ophys_experiment_id, run_params):
         run_params,             dictionary of parameters for the fit version
         
         RETURNS:
-        session     SDK session object
+        experiment     SDK experiment object
         fit         fit dictionary with model results
         design      DesignMatrix object for this experiment
     '''
     fit = gat.load_fit_pkl(run_params, ophys_experiment_id)
-    session = load_data(ophys_experiment_id, run_params)
+    experiment = load_data(ophys_experiment_id, run_params)
+
+    if fit is None:
+        KeyError('Fit not found for oeid: '+str(ophys_experiment_id))
     
     # num_weights gets populated during stimulus interpolation
     # configuring it here so the design matrix gets re-generated consistently
@@ -56,12 +126,21 @@ def load_fit_experiment(ophys_experiment_id, run_params):
             run_params['kernels'][k]['num_weights'] = fit['stimulus_interpolation']['timesteps_per_stimulus']    
 
     design = DesignMatrix(fit)
-    design = add_kernels(design, run_params, session,fit)
-    design,fit = split_by_engagement(design, run_params, session, fit)
+    design = add_kernels(design, run_params, experiment,fit)
+    design,fit = split_by_engagement(design, run_params, experiment, fit)
     check_weight_lengths(fit,design)
-    return session, fit, design
+    return experiment, fit, design
 
-def check_run_fits(VERSION):
+def load_run_json(path, VERSION):
+    '''
+        Reads run_params.json file from folder specified by path and VERSION
+    '''
+    filepath = os.path.join(path, 'v_'+VERSION, 'run_params.json')
+    with open(filepath) as f:
+        run_params = f.read()
+    return json.loads(run_params)
+
+def check_run_fits(path, VERSION):
     '''
         Returns the experiment table for this model version with a column 'GLM_fit' 
         appended that is a bool of whether the output pkl file exists for that 
@@ -73,7 +152,7 @@ def check_run_fits(VERSION):
         RETURNS
         experiment_table,   a dataframe with a boolean column 'GLM_fit' that says whether VERSION was fit for that experiment id
     '''
-    run_params = load_run_json(VERSION)
+    run_params = load_run_json(path, VERSION)
     experiment_table = pd.read_csv(run_params['experiment_table_path']).reset_index(drop=True).set_index('ophys_experiment_id')
     experiment_table['GLM_fit'] = False
     for index, oeid in enumerate(experiment_table.index.values):
@@ -115,7 +194,7 @@ def fit_experiment(oeid, run_params, NO_DROPOUTS=False, TESTING=False):
         TESTING         if True, fits only the first 6 cells in the experiment
     
         Returns:
-        session         the VBA session object for this experiment
+        experiment         the VBA experiment object for this experiment
         fit             a dictionary containing the results of the fit
         design          the design matrix for this fit
     '''
@@ -138,18 +217,18 @@ def fit_experiment(oeid, run_params, NO_DROPOUTS=False, TESTING=False):
 
     # Load Data
     print('Loading data')
-    session = load_data(oeid, run_params)
+    experiment = load_data(oeid, run_params)
 
     # Processing df/f data
     print('Processing df/f data')
-    fit,run_params = extract_and_annotate_ophys(session,run_params, TESTING=TESTING)
+    fit,run_params = extract_and_annotate_ophys(experiment,run_params, TESTING=TESTING)
 
     # Make Design Matrix
     print('Build Design Matrix')
     design = DesignMatrix(fit) 
 
     # Add kernels
-    design = add_kernels(design, run_params, session, fit) 
+    design = add_kernels(design, run_params, experiment, fit)
     check_weight_lengths(fit,design)
 
     # Check Interpolation onto stimulus timestamps
@@ -157,7 +236,7 @@ def fit_experiment(oeid, run_params, NO_DROPOUTS=False, TESTING=False):
         check_image_kernel_alignment(design,run_params)
 
     # split by engagement
-    design,fit = split_by_engagement(design, run_params, session, fit)
+    design,fit = split_by_engagement(design, run_params, experiment, fit)
 
     # Set up CV splits
     print('Setting up CV')
@@ -165,7 +244,7 @@ def fit_experiment(oeid, run_params, NO_DROPOUTS=False, TESTING=False):
 
     # Determine Regularization Strength
     print('Evaluating Regularization values')
-    fit = evaluate_ridge(fit, design, run_params,session)
+    fit = evaluate_ridge(fit, design, run_params,experiment)
 
     # Set up kernels to drop for model selection
     print('Setting up model selection dropout')
@@ -201,7 +280,7 @@ def fit_experiment(oeid, run_params, NO_DROPOUTS=False, TESTING=False):
 
     # Pack up
     print('Finished') 
-    return session, fit, design
+    return experiment, fit, design
 
 def evaluate_shuffle(fit, design, method='cells', num_shuffles=50):
     '''
@@ -253,7 +332,7 @@ def evaluate_shuffle(fit, design, method='cells', num_shuffles=50):
     fit['var_shuffle_'+method+'_threshold'] = x[dex]
     return fit
 
-def evaluate_ridge(fit, design,run_params,session):
+def evaluate_ridge(fit, design,run_params,experiment):
     '''
         Finds the best L2 value by fitting the model on a grid of L2 values and reporting training/test error
     
@@ -261,14 +340,14 @@ def evaluate_ridge(fit, design,run_params,session):
         design, design matrix
         run_params, dictionary of parameters, which needs to include:
             L2_optimize_by_cell     # If True, uses the best L2 value for each cell
-            L2_optimize_by_session  # If True, uses the best L2 value for this session
+            L2_optimize_by_experiment  # If True, uses the best L2 value for this experiment
             L2_use_fixed_value      # If True, uses the hard coded L2_fixed_lambda
             L2_fixed_lambda         # This value is used if L2_use_fixed_value
             L2_grid_range           # Min/Max L2 values for optimization
             L2_grid_num             # Number of L2 values for optimization
 
         returns fit, with the values added:
-            L2_grid                 # the L2 grid evaluated (if L2_optimize_by_cell, or L2_optimize_by_session)
+            L2_grid                 # the L2 grid evaluated (if L2_optimize_by_cell, or L2_optimize_by_experiment)
             avg_L2_regularization      # the average optimal L2 value, or the fixed value
             cell_L2_regularization     # the optimal L2 value for each cell (if L2_optimize_by_cell)
     '''
@@ -277,7 +356,7 @@ def evaluate_ridge(fit, design,run_params,session):
         fit['avg_L2_regularization'] = run_params['L2_fixed_lambda']
     elif run_params['L2_optimize_by_cre']:
         print('Using a hard-coded regularization value for each cre line')
-        this_cre = session.metadata['cre_line']
+        this_cre = experiment.metadata['cre_line']
         fit['avg_L2_regularization'] = run_params['L2_cre_values'][this_cre]
     elif not fit['ok_to_fit_preferred_engagement']:
         print('\tSkipping ridge evaluation because insufficient preferred engagement timepoints')
@@ -916,7 +995,7 @@ def L2_report(fit):
     plt.plot(fit['L2_grid'], np.mean(fit['L2_train_cv'],0), 'b-')
     plt.plot(fit['L2_grid'], np.mean(fit['L2_test_cv'],0), 'r-')
     plt.gca().set_xscale('log')
-    plt.ylabel('Session avg test CV')
+    plt.ylabel('experiment avg test CV')
     plt.xlabel('L2 Strength')
     plt.axvline(fit['avg_L2_regularization'], color='k', linestyle='--', alpha = 0.5)
     plt.ylim(0,.15) 
@@ -932,22 +1011,24 @@ def L2_report(fit):
  
 def load_data(oeid, run_params):
     '''
-        Allen SDK dataset is an attribute of this object (session)
+        Allen SDK dataset is an attribute of this object (experiment)
         Keyword arguments:
+            oeid (int) -- ophys_experiment_id
             oeid (int) -- ophys_experiment_id
             run_params (dict) -- dictionary of parameters
     '''
 
-    if ('include_invalid_rois' in run_params):
-        include_invalid_rois = (run_params['include_invalid_rois'])
-    else:
-        include_invalid_rois = False
+    # if ('include_invalid_rois' in run_params):
+    #    include_invalid_rois = (run_params['include_invalid_rois'])
+    # else:
+    #    include_invalid_rois = False
 
-    dataset = loading.get_ophys_dataset(oeid, include_invalid_rois=include_invalid_rois)
+    # dataset = loading.get_ophys_dataset(oeid, include_invalid_rois=include_invalid_rois)
+    experiment = BehaviorOphysExperimentDev.BehaviorOphysExperimentDev(oeid)
 
-    return dataset
+    return experiment
 
-def process_behavior_predictions(session, ophys_timestamps=None, cutoff_threshold=0.01):
+def process_behavior_predictions(experiment, ophys_timestamps=None, cutoff_threshold=0.01):
     '''
     Returns a dataframe of licking/grooming behavior derived from behavior videos
     All columns are interpolated onto ophys timestamps
@@ -956,8 +1037,8 @@ def process_behavior_predictions(session, ophys_timestamps=None, cutoff_threshol
     behavior_predictions = pd.DataFrame({'timestamps':ophys_timestamps})
     for column in ['lick','groom']:
         f = scipy.interpolate.interp1d(
-            session.behavior_movie_predictions['timestamps'], 
-            session.behavior_movie_predictions[column], 
+            experiment.behavior_movie_predictions['timestamps'], 
+            experiment.behavior_movie_predictions[column], 
             bounds_error=False
         )
         behavior_predictions[column] = f(behavior_predictions['timestamps'])
@@ -966,7 +1047,7 @@ def process_behavior_predictions(session, ophys_timestamps=None, cutoff_threshol
         behavior_predictions[column][behavior_predictions[column]<cutoff_threshold] = 0
     return behavior_predictions
 
-def process_eye_data(session,run_params,ophys_timestamps=None):
+def process_eye_data(experiment,run_params,ophys_timestamps=None):
     '''
         Returns a dataframe of eye tracking data with several processing steps
         1. All columns are interpolated onto ophys timestamps
@@ -978,8 +1059,8 @@ def process_eye_data(session,run_params,ophys_timestamps=None):
     '''    
 
     # Set parameters for blink detection, and load data
-    #session.set_params(eye_tracking_z_threshold=run_params['eye_blink_z'])
-    eye = session.eye_tracking.copy(deep=True)
+    #experiment.set_params(eye_tracking_z_threshold=run_params['eye_blink_z'])
+    eye = experiment.eye_tracking.copy(deep=True)
 
     # Compute pupil radius
     eye['pupil_radius'] = np.sqrt(eye['pupil_area']*(1/np.pi))
@@ -1003,14 +1084,14 @@ def process_eye_data(session,run_params,ophys_timestamps=None):
     return ophys_eye 
 
 
-def process_data(session, run_params, TESTING=False):
+def process_data(experiment, run_params, TESTING=False):
     '''
-    Processes dff traces by trimming off portions of recording session outside of the task period. These include:
+    Processes dff traces by trimming off portions of recording experiment outside of the task period. These include:
         * a ~5 minute gray screen period before the task begins
         * a ~5 minute gray screen period after the task ends
         * a 5-10 minute movie following the second gray screen period
     
-    input -- session object 
+    input -- experiment object 
     run_params, run json dictionary
     TESTING,        if True, only includes the first 6 cells of the experiment
 
@@ -1018,15 +1099,15 @@ def process_data(session, run_params, TESTING=False):
     '''
 
     # clip off the grey screen periods
-    fit_trace_timestamps = session.ophys_timestamps
-    timestamps_to_use = get_ophys_frames_to_use(session)
+    fit_trace_timestamps = experiment.ophys_timestamps
+    timestamps_to_use = get_ophys_frames_to_use(experiment)
 
     # Get the matrix of dff traces
-    dff_trace_arr = get_dff_arr(session, timestamps_to_use)
+    dff_trace_arr = get_dff_arr(experiment, timestamps_to_use)
     
     if ('use_events' in run_params) and (run_params['use_events']):
         print('Using detected events instead of df/f')
-        events_trace_arr = get_events_arr(session, timestamps_to_use) 
+        events_trace_arr = get_events_arr(experiment, timestamps_to_use) 
         assert np.size(dff_trace_arr) == np.size(events_trace_arr), 'Events array doesnt match size of df/f array'
         fit_trace_arr = copy(events_trace_arr)
     else:
@@ -1042,9 +1123,9 @@ def process_data(session, run_params, TESTING=False):
         include_invalid_rois = False
 
     if include_invalid_rois:
-        assert len(session.cell_specimen_table) == fit_trace_arr.values.shape[1], 'number of ROIs must match 1st dimension of `fit_trace_arr`'
+        assert len(experiment.cell_specimen_table) == fit_trace_arr.values.shape[1], 'number of ROIs must match 1st dimension of `fit_trace_arr`'
     else:
-        assert len(session.cell_specimen_table.query('valid_roi == True')) == fit_trace_arr.values.shape[1], 'number of valid ROIs must match 1st dimension of `fit_trace_arr`'
+        assert len(experiment.cell_specimen_table.query('valid_roi == True')) == fit_trace_arr.values.shape[1], 'number of valid ROIs must match 1st dimension of `fit_trace_arr`'
 
     # Clip the array to just the first 6 cells
     if TESTING:
@@ -1055,35 +1136,35 @@ def process_data(session, run_params, TESTING=False):
            
     return (fit_trace_arr,dff_trace_arr,events_trace_arr)
 
-def extract_and_annotate_ophys(session, run_params, TESTING=False):
+def extract_and_annotate_ophys(experiment, run_params, TESTING=False):
     '''
         Creates fit dictionary
-        extracts dff_trace or events_trace from session object
+        extracts dff_trace or events_trace from experiment object
         sets up the timestamps to be used
         sets up bins for binning times onto the ophys timestamps
     '''
     fit= dict()
-    trace_tuple = process_data(session,run_params, TESTING=TESTING)
+    trace_tuple = process_data(experiment,run_params, TESTING=TESTING)
     fit['fit_trace_arr'] = trace_tuple[0]
     fit['dff_trace_arr'] = trace_tuple[1]
     fit['events_trace_arr'] = trace_tuple[2]
     fit['fit_trace_timestamps'] = fit['fit_trace_arr']['fit_trace_timestamps'].values
     step = np.mean(np.diff(fit['fit_trace_timestamps']))
     fit['fit_trace_bins'] = np.concatenate([fit['fit_trace_timestamps'],[fit['fit_trace_timestamps'][-1]+step]])-step*.5  
-    fit['ophys_frame_rate'] = session.metadata['ophys_frame_rate']
+    fit['ophys_frame_rate'] = experiment.metadata['ophys_frame_rate']
    
     # Interpolate onto stimulus 
-    fit,run_params = interpolate_to_stimulus(fit, session, run_params)
+    fit,run_params = interpolate_to_stimulus(fit, experiment, run_params)
  
     # If we are splitting on engagement, then determine the engagement timepoints
     if run_params['split_on_engagement']:
         print('Adding Engagement labels. Preferred engagement state: '+run_params['engagement_preference'])
-        fit = add_engagement_labels(fit, session, run_params)
+        fit = add_engagement_labels(fit, experiment, run_params)
     else:
         fit['ok_to_fit_preferred_engagement'] = True
     return fit, run_params
 
-def interpolate_to_stimulus(fit, session, run_params):
+def interpolate_to_stimulus(fit, experiment, run_params):
     '''
         This function interpolates the neural signal (either dff or events) onto timestamps that are aligned to the stimulus.
         
@@ -1098,7 +1179,7 @@ def interpolate_to_stimulus(fit, session, run_params):
    
 
     # Find first non omitted stimulus
-    filtered_stimulus_presentations = session.stimulus_presentations
+    filtered_stimulus_presentations = experiment.stimulus_presentations
     while filtered_stimulus_presentations.iloc[0]['omitted'] == True:
         filtered_stimulus_presentations = filtered_stimulus_presentations.iloc[1:]
 
@@ -1259,12 +1340,12 @@ def check_image_kernel_alignment(design,run_params):
 
 
 
-def check_interpolation_to_stimulus(fit, session): 
+def check_interpolation_to_stimulus(fit, experiment): 
     '''
         Checks to see if we have the same number of timestamps per stimulus presentation
     '''
     lens = []
-    temp = session.stimulus_presentations.copy()
+    temp = experiment.stimulus_presentations.copy()
     temp['next_start'] = temp.shift(-1)['start_time']
     temp.at[temp.index.values[-1],'next_start'] = temp.iloc[-1]['start_time']+0.75
     for index, row in temp.iterrows():
@@ -1277,16 +1358,16 @@ def check_interpolation_to_stimulus(fit, session):
             print('   Stimuli with {} timestamps: {}'.format(u[index], c[index]))
         raise Exception('Uneven number of timestamps per stimulus presentation')
 
-def plot_interpolation_debug(fit,session): 
+def plot_interpolation_debug(fit,experiment): 
     fig, ax = plt.subplots(2,1)
     
     # Stim start
     ax[0].plot(fit['stimulus_interpolation']['original_timestamps'][0:50],fit['stimulus_interpolation']['original_fit_arr'][0:50,0], 'ko',markerfacecolor='None',label='Original')
     ax[0].plot(fit['fit_trace_timestamps'][0:50],fit['fit_trace_arr'][0:50,0], 'bo',markerfacecolor='None',label='Stimulus Aligned')
-    for dex in range(0,len(session.stimulus_presentations)):
-        if session.stimulus_presentations.loc[dex].start_time > fit['stimulus_interpolation']['original_timestamps'][50]:
+    for dex in range(0,len(experiment.stimulus_presentations)):
+        if experiment.stimulus_presentations.loc[dex].start_time > fit['stimulus_interpolation']['original_timestamps'][50]:
             break
-        ax[0].axvline(session.stimulus_presentations.loc[dex].start_time,color='r',markerfacecolor='None')
+        ax[0].axvline(experiment.stimulus_presentations.loc[dex].start_time,color='r',markerfacecolor='None')
     for dex, val in enumerate(fit['stimulus_interpolation']['original_fit_arr'][0:50,0]):
         ax[0].plot([fit['stimulus_interpolation']['original_bins'][dex],fit['stimulus_interpolation']['original_bins'][dex+1]],[val,val],'k-',alpha=.5)
     for dex, val in enumerate(fit['fit_trace_arr'][0:50,0]):
@@ -1299,9 +1380,9 @@ def plot_interpolation_debug(fit,session):
     # Stim end
     ax[1].plot(fit['stimulus_interpolation']['original_timestamps'][-50:],fit['stimulus_interpolation']['original_fit_arr'][-50:,0], 'ko',markerfacecolor='None')
     ax[1].plot(fit['fit_trace_timestamps'][-50:],fit['fit_trace_arr'][-50:,0], 'bo',markerfacecolor='None')
-    for dex in range(0,len(session.stimulus_presentations)):
-        if session.stimulus_presentations.loc[dex].start_time > fit['stimulus_interpolation']['original_timestamps'][-50]:
-            ax[1].axvline(session.stimulus_presentations.loc[dex].start_time,color='r',markerfacecolor='None')
+    for dex in range(0,len(experiment.stimulus_presentations)):
+        if experiment.stimulus_presentations.loc[dex].start_time > fit['stimulus_interpolation']['original_timestamps'][-50]:
+            ax[1].axvline(experiment.stimulus_presentations.loc[dex].start_time,color='r',markerfacecolor='None')
     for dex, val in enumerate(fit['stimulus_interpolation']['original_fit_arr'][-50:,0]):
         ax[1].plot([fit['stimulus_interpolation']['original_bins'][-51+dex],fit['stimulus_interpolation']['original_bins'][-50+dex]],[val,val],'k-',alpha=.5)
     for dex, val in enumerate(fit['fit_trace_arr'][-50:,0]):
@@ -1311,7 +1392,7 @@ def plot_interpolation_debug(fit,session):
     #ax[1].set_ylim( -.5,.5)
     plt.tight_layout()
 
-def add_engagement_labels(fit, session, run_params):
+def add_engagement_labels(fit, experiment, run_params):
     '''
         Adds a boolean vector 'engaged' to the fit dictionary based on the reward rate
         
@@ -1330,22 +1411,23 @@ def add_engagement_labels(fit, session, run_params):
     win_type='triang'
 
     # Get reward rate
-    session.stimulus_presentations = reformat.add_rewards_each_flash(session.stimulus_presentations,session.rewards)
-    session.stimulus_presentations['rewarded'] = [len(x) > 0 for x in session.stimulus_presentations['rewards']]
-    session.stimulus_presentations['reward_rate'] = session.stimulus_presentations['rewarded'].rolling(win_dur,min_periods=1,win_type=win_type).mean()/.75
-    session.stimulus_presentations['engaged']= [x > reward_threshold for x in session.stimulus_presentations['reward_rate']]    
+    experiment.stimulus_presentations = behavior.add_rewards_to_stimulus_presentations(experiment.stimulus_presentations,experiment.rewards,
+                                                                                    time_window=[0, 0.75])
+    experiment.stimulus_presentations['rewarded'] = [len(x) > 0 for x in experiment.stimulus_presentations['rewards']]
+    experiment.stimulus_presentations['reward_rate'] = experiment.stimulus_presentations['rewarded'].rolling(win_dur,min_periods=1,win_type=win_type).mean()/.75
+    experiment.stimulus_presentations['engaged']= [x > reward_threshold for x in experiment.stimulus_presentations['reward_rate']]    
 
     # Make dataframe with start/end of each image cycle pinned with correct engagement value
-    start_df = session.stimulus_presentations[['start_time','engaged']].copy()
-    end_df = session.stimulus_presentations[['start_time','engaged']].copy()
+    start_df = experiment.stimulus_presentations[['start_time','engaged']].copy()
+    end_df = experiment.stimulus_presentations[['start_time','engaged']].copy()
     end_df['start_time'] = end_df['start_time']+0.75
     engaged_df = pd.concat([start_df,end_df])
     engaged_df = engaged_df.sort_values(by='start_time').rename(columns={'start_time':'timestamps','engaged':'values'})  
     
     # Interpolate onto fit timestamps
     fit['engaged']= interpolate_to_ophys_timestamps(fit,engaged_df)['values'].values 
-    print('\t% of session engaged:    '+str(np.sum(fit['engaged'])/len(fit['engaged'])))
-    print('\t% of session disengaged: '+str(1-np.sum(fit['engaged'])/len(fit['engaged'])))
+    print('\t% of experiment engaged:    '+str(np.sum(fit['engaged'])/len(fit['engaged'])))
+    print('\t% of experiment disengaged: '+str(1-np.sum(fit['engaged'])/len(fit['engaged'])))
 
     # Check min_engaged_duration:
     seconds_in_engaged = np.sum(fit['engaged'])/fit['ophys_frame_rate']
@@ -1361,7 +1443,7 @@ def add_engagement_labels(fit, session, run_params):
         print('WARNING, insufficient time points in preferred engagement state. This model will not fit') 
     return fit
 
-def add_kernels(design, run_params,session, fit):
+def add_kernels(design, run_params,experiment, fit):
     '''
         Iterates through the kernels in run_params['kernels'] and adds
         each to the design matrix
@@ -1371,7 +1453,7 @@ def add_kernels(design, run_params,session, fit):
     
         design          the design matrix for this model
         run_params      the run_json for this model
-        session         the SDK session object for this experiment
+        experiment         the SDK experiment object for this experiment
         fit             the fit object for this model
     '''
     run_params['failed_kernels']=set()
@@ -1381,9 +1463,9 @@ def add_kernels(design, run_params,session, fit):
         if 'num_weights' not in run_params['kernels'][kernel_name]:
             run_params['kernels'][kernel_name]['num_weights'] = None
         if run_params['kernels'][kernel_name]['type'] == 'discrete':
-            design = add_discrete_kernel_by_label(kernel_name, design, run_params, session, fit)
+            design = add_discrete_kernel_by_label(kernel_name, design, run_params, experiment, fit)
         else:
-            design = add_continuous_kernel_by_label(kernel_name, design, run_params, session, fit)   
+            design = add_continuous_kernel_by_label(kernel_name, design, run_params, experiment, fit)   
 
     clean_failed_kernels(run_params)
     return design
@@ -1434,13 +1516,13 @@ def clean_failed_kernels(run_params):
         print()
 
 
-def add_continuous_kernel_by_label(kernel_name, design, run_params, session,fit):
+def add_continuous_kernel_by_label(kernel_name, design, run_params, experiment,fit):
     '''
         Adds the kernel specified by <kernel_name> to the design matrix
         kernel_name          <str> the label for this kernel, will raise an error if not implemented
         design          the design matrix for this model
         run_params      the run_json for this model
-        session         the SDK session object for this experiment
+        experiment         the SDK experiment object for this experiment
         fit             the fit object for this model       
     ''' 
     print('    Adding kernel: '+kernel_name)
@@ -1456,7 +1538,7 @@ def add_continuous_kernel_by_label(kernel_name, design, run_params, session,fit)
             timeseries = np.array(range(1,len(fit['fit_trace_timestamps'])+1))
             timeseries = timeseries/len(timeseries)
         elif event == 'running':
-            running_df = session.running_speed
+            running_df = experiment.running_speed
             running_df = running_df.rename(columns={'speed':'values'})
             timeseries = interpolate_to_ophys_timestamps(fit, running_df)['values'].values
             #timeseries = standardize_inputs(timeseries, mean_center=False,unit_variance=False, max_value=run_params['max_run_speed'])
@@ -1464,8 +1546,8 @@ def add_continuous_kernel_by_label(kernel_name, design, run_params, session,fit)
         elif event.startswith('face_motion'):
             PC_number = int(event.split('_')[-1])
             face_motion_df =  pd.DataFrame({
-                'timestamps': session.behavior_movie_timestamps,
-                'values': session.behavior_movie_pc_activations[:,PC_number]
+                'timestamps': experiment.behavior_movie_timestamps,
+                'values': experiment.behavior_movie_pc_activations[:,PC_number]
             })
             timeseries = interpolate_to_ophys_timestamps(fit, face_motion_df)['values'].values
             timeseries = standardize_inputs(timeseries, mean_center=run_params['mean_center_inputs'],unit_variance=run_params['unit_variance_inputs'])
@@ -1479,23 +1561,23 @@ def add_continuous_kernel_by_label(kernel_name, design, run_params, session,fit)
             timeseries = fit_trace_pca[:,0]
             timeseries = standardize_inputs(timeseries, mean_center=run_params['mean_center_inputs'],unit_variance=run_params['unit_variance_inputs'])
         elif (len(event) > 6) & ( event[0:6] == 'model_'):
-            bsid = session.metadata['behavior_session_id']
+            bsid = experiment.metadata['behavior_experiment_id']
             weight_name = event[6:]
             weight = get_model_weight(bsid, weight_name, run_params)
             weight_df = pd.DataFrame()
-            weight_df['timestamps'] = session.stimulus_presentations.start_time.values
+            weight_df['timestamps'] = experiment.stimulus_presentations.start_time.values
             weight_df['values'] = weight.values
             timeseries = interpolate_to_ophys_timestamps(fit, weight_df)
             timeseries['values'].fillna(method='ffill',inplace=True) # TODO investigate where these NaNs come from
             timeseries = timeseries['values'].values
             timeseries = standardize_inputs(timeseries, mean_center=run_params['mean_center_inputs'],unit_variance=run_params['unit_variance_inputs'])
         elif event == 'pupil':
-            session.ophys_eye = process_eye_data(session,run_params,ophys_timestamps =fit['fit_trace_timestamps'] )
-            timeseries = session.ophys_eye['pupil_radius_zscore'].values
+            experiment.ophys_eye = process_eye_data(experiment,run_params,ophys_timestamps =fit['fit_trace_timestamps'] )
+            timeseries = experiment.ophys_eye['pupil_radius_zscore'].values
         elif event == 'lick_model' or event == 'groom_model':
-            if not hasattr(session, 'lick_groom_model'):
-                session.lick_groom_model = process_behavior_predictions(session, ophys_timestamps = fit['fit_trace_timestamps'])
-            timeseries = session.lick_groom_model[event.split('_')[0]].values
+            if not hasattr(experiment, 'lick_groom_model'):
+                experiment.lick_groom_model = process_behavior_predictions(experiment, ophys_timestamps = fit['fit_trace_timestamps'])
+            timeseries = experiment.lick_groom_model[event.split('_')[0]].values
         else:
             raise Exception('Could not resolve kernel label')
     except Exception as e:
@@ -1507,14 +1589,14 @@ def add_continuous_kernel_by_label(kernel_name, design, run_params, session,fit)
             'error_type': 'kernel', 
             'kernel_name': kernel_name, 
             'exception':e.args[0], 
-            'oeid':session.metadata['ophys_experiment_id'], 
+            'oeid':experiment.metadata['ophys_experiment_id'], 
             'glm_version':run_params['version']
         }
         # log error to mongo
-        gat.log_error(
-            run_params['kernel_error_dict'][kernel_name], 
-            keys_to_check = ['oeid', 'glm_version', 'kernel_name']
-        )
+        # gat.log_error(
+        #     run_params['kernel_error_dict'][kernel_name],
+        #     keys_to_check = ['oeid', 'glm_version', 'kernel_name']
+        # )
         return design
     else:
         #assert length of values is same as length of timestamps
@@ -1557,13 +1639,13 @@ def standardize_inputs(timeseries, mean_center=True, unit_variance=True,max_valu
 
     return timeseries
 
-def add_discrete_kernel_by_label(kernel_name,design, run_params,session,fit):
+def add_discrete_kernel_by_label(kernel_name,design, run_params,experiment,fit):
     '''
         Adds the kernel specified by <kernel_name> to the design matrix
         kernel_name     <str> the label for this kernel, will raise an error if not implemented
         design          the design matrix for this model
         run_params      the run_json for this model
-        session         the SDK session object for this experiment
+        experiment         the SDK experiment object for this experiment
         fit             the fit object for this model       
     ''' 
     print('    Adding kernel: '+kernel_name)
@@ -1572,9 +1654,9 @@ def add_discrete_kernel_by_label(kernel_name,design, run_params,session,fit):
             raise Exception('\tInsufficient time points to add kernel') 
         event = run_params['kernels'][kernel_name]['event']
         if event == 'licks':
-            event_times = session.licks['timestamps'].values
+            event_times = experiment.licks['timestamps'].values
         elif event == 'lick_bouts':
-            licks = session.licks
+            licks = experiment.licks
             licks['pre_ILI'] = licks['timestamps'] - licks['timestamps'].shift(fill_value=-10)
             licks['post_ILI'] = licks['timestamps'].shift(periods=-1,fill_value=5000) - licks['timestamps']
             licks['bout_start'] = licks['pre_ILI'] > run_params['lick_bout_ILI']
@@ -1588,36 +1670,36 @@ def add_discrete_kernel_by_label(kernel_name,design, run_params,session,fit):
                                         np.arange(x[0],x[0]+x[1],run_params['min_interval']) for x in 
                                         zip(licks['timestamps'], licks['post_ILI'], licks['bout_end'])]) 
         elif event == 'rewards':
-            event_times = session.rewards['timestamps'].values
+            event_times = experiment.rewards['timestamps'].values
         elif event == 'change':
-            #event_times = session.trials.query('go')['change_time'].values # This method drops auto-rewarded changes
-            event_times = session.stimulus_presentations.query('is_change')['start_time'].values
+            #event_times = experiment.trials.query('go')['change_time'].values # This method drops auto-rewarded changes
+            event_times = experiment.stimulus_presentations.query('is_change')['start_time'].values
             event_times = event_times[~np.isnan(event_times)]
         elif event in ['hit', 'miss', 'false_alarm', 'correct_reject']:
             if event == 'hit': # Includes auto-rewarded changes as hits, since they include a reward. 
-                event_times = session.trials.query('hit or auto_rewarded')['change_time'].values           
+                event_times = experiment.trials.query('hit or auto_rewarded')['change_time'].values
             else:
-                event_times = session.trials.query(event)['change_time'].values
+                event_times = experiment.trials.query(event)['change_time'].values
             event_times = event_times[~np.isnan(event_times)]
-            if len(session.rewards) < 5: ## HARD CODING THIS VALUE
-                raise Exception('Trial type regressors arent defined for passive sessions (sessions with less than 5 rewards)')
+            if len(experiment.rewards) < 5: ## HARD CODING THIS VALUE
+                raise Exception('Trial type regressors arent defined for passive experiments (experiments with less than 5 rewards)')
         elif event == 'passive_change':
-            if len(session.rewards) > 5: 
-                raise Exception('\tPassive Change kernel cant be added to active sessions')               
-            event_times = session.stimulus_presentations.query('is_change')['start_time'].values
+            if len(experiment.rewards) > 5:
+                raise Exception('\tPassive Change kernel cant be added to active experiments')               
+            event_times = experiment.stimulus_presentations.query('is_change')['start_time'].values
             event_times = event_times[~np.isnan(event_times)]           
         elif event == 'any-image':
-            event_times = session.stimulus_presentations.query('not omitted')['start_time'].values
+            event_times = experiment.stimulus_presentations.query('not omitted')['start_time'].values
         elif event == 'image_expectation':
-            event_times = session.stimulus_presentations['start_time'].values
+            event_times = experiment.stimulus_presentations['start_time'].values
             # Append last image
             event_times = np.concatenate([event_times,[event_times[-1]+.75]])
         elif event == 'omissions':
-            event_times = session.stimulus_presentations.query('omitted')['start_time'].values
+            event_times = experiment.stimulus_presentations.query('omitted')['start_time'].values
         elif (len(event)>5) & (event[0:5] == 'image') & ('change' not in event):
-            event_times = session.stimulus_presentations.query('image_index == {}'.format(int(event[-1])))['start_time'].values
+            event_times = experiment.stimulus_presentations.query('image_index == {}'.format(int(event[-1])))['start_time'].values
         elif (len(event)>5) & (event[0:5] == 'image') & ('change' in event):
-            event_times = session.stimulus_presentations.query('is_change & (image_index == {})'.format(int(event[-1])))['start_time'].values
+            event_times = experiment.stimulus_presentations.query('is_change & (image_index == {})'.format(int(event[-1])))['start_time'].values
         else:
             raise Exception('\tCould not resolve kernel label')
 
@@ -1637,14 +1719,14 @@ def add_discrete_kernel_by_label(kernel_name,design, run_params,session,fit):
             'error_type': 'kernel', 
             'kernel_name': kernel_name, 
             'exception':e.args[0], 
-            'oeid':session.metadata['ophys_experiment_id'], 
+            'oeid':experiment.metadata['ophys_experiment_id'], 
             'glm_version':run_params['version']
         }
-        # log error to mongo:
-        gat.log_error(
-            run_params['kernel_error_dict'][kernel_name], 
-            keys_to_check = ['oeid', 'glm_version', 'kernel_name']
-        )        
+        # log error to mongo: # commenting this out since mongodb 'omFish' database is not set up, ira 23.02.14
+        # gat.log_error(
+        #     run_params['kernel_error_dict'][kernel_name],
+        #     keys_to_check = ['oeid', 'glm_version', 'kernel_name']
+        # )
         return design       
     else:
         events_vec, timestamps = np.histogram(event_times, bins=fit['fit_trace_bins'])
@@ -1812,7 +1894,7 @@ class DesignMatrix(object):
             }
         self.running_stop += kernel_length_samples
 
-def split_by_engagement(design, run_params, session, fit):
+def split_by_engagement(design, run_params, experiment, fit):
     '''
         Splits the elements of fit and design matrix based on the engagement preference
     '''
@@ -1850,7 +1932,7 @@ def split_time(timebase, subsplits_per_split=10, output_splits=6):
         subsplits_per_split     each cv split will be composed of this many continuous blocks
 
         We have to compose each CV split of a bunch of subsplits to prevent issues  
-        time in session from distorting each CV split
+        time in experiment from distorting each CV split
     
         returns:
         a list of CV splits. For each list element, a list of the timestamps in that CV split
@@ -1902,42 +1984,98 @@ def toeplitz(events, kernel_length_samples,offset_samples):
     return this_kernel[:,:total_len]
 
 
-def get_ophys_frames_to_use(session, end_buffer=0.5,stim_dur = 0.25):
+def get_ophys_frames_to_use(experiment, end_buffer=0.5,stim_dur = 0.25):
     '''
     Trims out the grey period at start, end, and the fingerprint.
     Args:
-        session (allensdk.brain_observatory.behavior.behavior_ophys_session.BehaviorOphysSession)
+        experiment (allensdk.brain_observatory.behavior.behavior_ophys_experiment.BehaviorOphysexperiment)
         end_buffer (float): duration in seconds to extend beyond end of last stimulus presentation (default = 0.5)
         stim_dur (float): duration in seconds of stimulus presentations
     Returns:
         ophys_frames_to_use (np.array of bool): Boolean mask with which ophys frames to use
     '''
-    # filter out omitted flashes to avoid omitted flashes at the start of the session from affecting analysis range
-    filtered_stimulus_presentations = session.stimulus_presentations
+    # filter out omitted flashes to avoid omitted flashes at the start of the experiment from affecting analysis range
+    filtered_stimulus_presentations = experiment.stimulus_presentations
     while filtered_stimulus_presentations.iloc[0]['omitted'] == True:
         filtered_stimulus_presentations = filtered_stimulus_presentations.iloc[1:]
     
     ophys_frames_to_use = (
-        (session.ophys_timestamps >= filtered_stimulus_presentations.iloc[0]['start_time']-end_buffer) 
-        & (session.ophys_timestamps <= filtered_stimulus_presentations.iloc[-1]['start_time'] +stim_dur+ end_buffer)
+        (experiment.ophys_timestamps >= filtered_stimulus_presentations.iloc[0]['start_time']-end_buffer) 
+        & (experiment.ophys_timestamps <= filtered_stimulus_presentations.iloc[-1]['start_time'] +stim_dur+ end_buffer)
     )
     return ophys_frames_to_use
 
-def get_events_arr(session, timestamps_to_use):
+def load_oasis_events_h5_to_df(h5_path= None, oeid=None):
+    """Load h5 file from new_dff module
+    This is a temporary hack, until AllenSDK experiment object is updated
+    Parameters
+    ----------
+    h5_path : str
+        Path to h5 file
+    oeid : int
+
+    Returns
+    -------
+    """
+    from allensdk.brain_observatory.behavior.event_detection import filter_events_array 
+    import h5py
+
+    filter_scale_seconds = 2
+    frame_rate_hz = 10.7
+    filter_n_time_steps = 20
+    if h5_path is None:
+        h5_path = '//allen/programs/mindscope/workgroups/learning/pipeline_validation/events/oasis_v1'
+    filename = os.path.join(h5_path, f'{oeid}.h5')
+
+    with h5py.File(filename, 'r') as f:
+        h5 = {}
+        for key in f.keys():
+            h5[key] = f[key][()]
+
+    events = np.array(h5['spikes'])
+
+    filtered_events = filter_events_array(
+                    arr=events,
+                    scale=filter_scale_seconds*frame_rate_hz,
+            n_time_steps=filter_n_time_steps)
+
+    dl = [[d] for d in events]
+    fe = [[fe] for fe in filtered_events]
+    df = pd.DataFrame(dl).rename(columns={0: 'events'})
+    df['cell_roi_id'] = h5['cell_roi_id']
+    df['filtered_events'] = np.array(fe)
+
+
+    # columsn order 
+    df = df[['cell_roi_id', 'events', 'filtered_events']]
+
+    return df
+
+def get_events_arr(experiment, timestamps_to_use):
     '''
-    Get the events traces from a session in xarray format (preserves cell ids and timestamps)
+    Get the events traces from a experiment in xarray format (preserves cell ids and timestamps)
 
     timestamps_to_use is a boolean vector that contains which timestamps to use in the analysis
     '''
     # Get events and trim off ends
-    all_events = np.stack(session.events['filtered_events'].values)
+    
+    try:
+        events_df = load_oasis_events_h5_to_df(h5_path=None, oeid=experiment.ophys_experiment_id)
+        events_df.set_index('cell_roi_id', inplace=True)
+        rois = experiment.events['cell_roi_id'].values
+        events_df = events_df.loc[rois]
+        all_events = np.stack(events_df['filtered_events'].values)
+    except:
+        print('!!! Did not find new events, trying to use old events...')
+        all_events = np.stack(experiment.events['filtered_events'].values)
+    
     all_events_to_use = all_events[:, timestamps_to_use]
 
     # Get the timestamps
-    events_trace_timestamps = session.ophys_timestamps
+    events_trace_timestamps = experiment.ophys_timestamps
     events_trace_timestamps_to_use = events_trace_timestamps[timestamps_to_use]
 
-    # Note: it may be more efficient to get the xarrays directly, rather than extracting/building them from session.events_traces
+    # Note: it may be more efficient to get the xarrays directly, rather than extracting/building them from experiment.events_traces
     #       The dataframes are built from xarrays to start with, so we are effectively converting them twice by doing this
     #       But if there's no big time penalty to doing it this way, then maybe just leave it be.
     # Intentionally setting the name of the time axis to fit_trace_timestamps so it matches the fit_trace_arr
@@ -1946,26 +2084,26 @@ def get_events_arr(session, timestamps_to_use):
             dims = ("fit_trace_timestamps", "cell_specimen_id"),
             coords = {
                 "fit_trace_timestamps": events_trace_timestamps_to_use,
-                "cell_specimen_id": session.cell_specimen_table.index.values
+                "cell_specimen_id": experiment.cell_specimen_table.index.values
             }
         )
     return events_trace_xr
 
-def get_dff_arr(session, timestamps_to_use):
+def get_dff_arr(experiment, timestamps_to_use):
     '''
-    Get the dff traces from a session in xarray format (preserves cell ids and timestamps)
+    Get the dff traces from a experiment in xarray format (preserves cell ids and timestamps)
 
     timestamps_to_use is a boolean vector that contains which timestamps to use in the analysis
     '''
     # Get dff and trim off ends
-    all_dff = np.stack(session.dff_traces['dff'].values)
+    all_dff = np.stack(experiment.dff_traces['dff'].values)
     all_dff_to_use = all_dff[:, timestamps_to_use]
 
     # Get the timestamps
-    fit_trace_timestamps = session.ophys_timestamps
+    fit_trace_timestamps = experiment.ophys_timestamps
     fit_trace_timestamps_to_use = fit_trace_timestamps[timestamps_to_use]
 
-    # Note: it may be more efficient to get the xarrays directly, rather than extracting/building them from session.dff_traces
+    # Note: it may be more efficient to get the xarrays directly, rather than extracting/building them from experiment.dff_traces
     #       The dataframes are built from xarrays to start with, so we are effectively converting them twice by doing this
     #       But if there's no big time penalty to doing it this way, then maybe just leave it be.
     dff_trace_xr = xr.DataArray(
@@ -1973,7 +2111,7 @@ def get_dff_arr(session, timestamps_to_use):
             dims = ("fit_trace_timestamps", "cell_specimen_id"),
             coords = {
                 "fit_trace_timestamps": fit_trace_timestamps_to_use,
-                "cell_specimen_id": session.cell_specimen_table.index.values
+                "cell_specimen_id": experiment.cell_specimen_table.index.values
             }
         )
     return dff_trace_xr
@@ -2007,7 +2145,7 @@ def interpolate_to_ophys_timestamps(fit,df):
 
 def get_model_weight(bsid, weight_name, run_params):
     '''
-        Loads the model weights for <bsid> behavior_ophys_session_id
+        Loads the model weights for <bsid> behavior_ophys_experiment_id
         Loads only the <weight_name> weight
         run_params gives the directory to the fit location
     '''
@@ -2146,7 +2284,7 @@ def masked_variance_ratio(fit_trace_arr, W, X, mask):
 
 def error_by_time(fit, design):
     '''
-        Plots the model error over the course of the session
+        Plots the model error over the course of the experiment
     '''
     plt.figure()
     Y = design.get_X().values @ fit['dropouts']['Full']['cv_var_weights'][:,:,0]

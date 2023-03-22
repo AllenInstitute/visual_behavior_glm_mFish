@@ -5,9 +5,11 @@ from copy import copy
 import datetime
 import shutil
 
-import visual_behavior.data_access.loading as loading
+# import visual_behavior.data_access.loading as loading
+import visual_behavior_glm.database as db
 
-OUTPUT_DIR_BASE = r'//allen/programs/braintv/workgroups/nc-ophys/visual_behavior/ophys_glm'
+OUTPUT_DIR_BASE = '//allen/programs/braintv/workgroups/nc-ophys/omFish_glm/ophys_glm'
+# OUTPUT_DIR_BASE = '//allen/programs/braintv/workgroups/nc-ophys/visual_behavior/ophys_glm'
 
 def get_versions(vrange=[15,20]):
     versions = os.listdir(OUTPUT_DIR_BASE)
@@ -25,7 +27,7 @@ def define_kernels():
         'intercept':    {'event':'intercept',   'type':'continuous',    'length':0,     'offset':0,     'num_weights':None, 'dropout':True, 'text': 'constant value'},
         'hits':         {'event':'hit',         'type':'discrete',      'length':2.25,   'offset':0,    'num_weights':None, 'dropout':True, 'text': 'lick to image change'},
         'misses':       {'event':'miss',        'type':'discrete',      'length':2.25,   'offset':0,    'num_weights':None, 'dropout':True, 'text': 'no lick to image change'},
-        'passive_change':   {'event':'passive_change','type':'discrete','length':2.25,   'offset':0,    'num_weights':None, 'dropout':True, 'text': 'passive session image change'},
+        # 'passive_change':   {'event':'passive_change','type':'discrete','length':2.25,   'offset':0,    'num_weights':None, 'dropout':True, 'text': 'passive session image change'},
         #'hits':         {'event':'hit',         'type':'discrete',      'length':.75,   'offset':0,    'num_weights':None, 'dropout':True, 'text': 'lick to image change'},
         #'misses':       {'event':'miss',        'type':'discrete',      'length':.75,   'offset':0,    'num_weights':None, 'dropout':True, 'text': 'no lick to image change'},
         #'passive_change':   {'event':'passive_change','type':'discrete','length':.75,   'offset':0,    'num_weights':None, 'dropout':True, 'text': 'passive session image change'},
@@ -36,6 +38,7 @@ def define_kernels():
         #'omissions':        {'event':'omissions',   'type':'discrete',  'length':0.75,      'offset':0,     'num_weights':None, 'dropout':True, 'text': 'image was omitted'},
         #'post-omissions':   {'event':'omissions',   'type':'discrete',  'length':2.25,   'offset':0.75,  'num_weights':None, 'dropout':True, 'text': 'images after omission'},
         'each-image':   {'event':'each-image',  'type':'discrete',      'length':0.75,  'offset':0,     'num_weights':None, 'dropout':True, 'text': 'image presentation'},
+        # 'each-image':   {'event':'any-image',  'type':'discrete',      'length':0.75,  'offset':0,     'num_weights':None, 'dropout':True, 'text': 'image presentation'},
         'running':      {'event':'running',     'type':'continuous',    'length':2,     'offset':-1,    'num_weights':None, 'dropout':True, 'text': 'normalized running speed'},
         'pupil':        {'event':'pupil',       'type':'continuous',    'length':2,     'offset':-1,    'num_weights':None, 'dropout':True, 'text': 'Z-scored pupil diameter'},
         'licks':        {'event':'licks',       'type':'discrete',      'length':2,     'offset':-1,    'num_weights':None, 'dropout':True, 'text': 'mouse lick'},
@@ -62,13 +65,13 @@ def get_experiment_table(require_model_outputs = False,include_4x2_data=False):
     Keyword arguments:
     require_model_outputs (bool) -- if True, limits returned experiments to those that have been fit with behavior model
     """
-    experiments_table = loading.get_platform_paper_experiment_table(include_4x2_data=include_4x2_data) 
+    experiments_table = db.get_mFish_experiment_table()
     if require_model_outputs:
         return experiments_table.query('model_outputs_available == True')
     else:
         return experiments_table
 
-def make_run_json(VERSION,label='',username=None, src_path=None, TESTING=False,update_version=False,include_4x2_data=False):
+def make_run_json(VERSION,label='',username=None, src_path=None, TESTING=False,update_version=False,include_4x2_data=True):
     '''
         Freezes model files, parameters, and ophys experiment ids
         If the model iteration already exists, throws an error unless (update_version=True)
@@ -102,7 +105,7 @@ def make_run_json(VERSION,label='',username=None, src_path=None, TESTING=False,u
     job_dir                 = os.path.join(output_dir, 'log_files')
     json_path               = os.path.join(output_dir, 'run_params.json')
     experiment_table_path   = os.path.join(output_dir, 'experiment_table_v_'+str(VERSION)+'.csv')
-    beh_model_dir           = '/allen/programs/braintv/workgroups/nc-ophys/alex.piet/behavior/model_output/'
+    beh_model_dir           = '//allen/programs/braintv/workgroups/nc-ophys/omFish_glm/behavior/model_output/'
 
     if not update_version:
         os.mkdir(output_dir)
@@ -144,7 +147,7 @@ def make_run_json(VERSION,label='',username=None, src_path=None, TESTING=False,u
     
 
     # Define list of experiments to fit
-    experiment_table = get_experiment_table(include_4x2_data=include_4x2_data)
+    experiment_table = db.get_mFish_experiment_table()
     if TESTING:
         experiment_table = experiment_table.tail(5)
     experiment_table.to_csv(experiment_table_path)
@@ -188,7 +191,7 @@ def make_run_json(VERSION,label='',username=None, src_path=None, TESTING=False,u
         'L2_grid_range':[.1, 500],      # Min/Max L2 values for L2_optimize_by_cell, or L2_optimize_by_session
         'L2_grid_num': 40,              # Number of L2 values for L2_optimize_by_cell, or L2_optimize_by_session
         'L2_grid_type':'linear',        # how to space L2 options, must be: 'log' or 'linear'
-        'L2_cre_values':{'Slc17a7-IRES2-Cre':340, 'Vip-IRES-Cre':320,'Sst-IRES-Cre':185}, # Fixed values to use for optimize_by_cre 
+        'L2_cre_values':{'Slc17a7-IRES2-Cre':340, 'Vip-IRES-Cre':320,'Sst-IRES-Cre':185, 'Gad2-IRES-Cre': 200, 'Rbp4-Cre_KL100': 340}, # Fixed values to use for optimize_by_cre
         'ophys_experiment_ids':experiment_table.index.values.tolist(),
         'job_settings':job_settings,
         'split_on_engagement': False,   # If True, uses 'engagement_preference' to determine what engagement state to use
@@ -204,7 +207,7 @@ def make_run_json(VERSION,label='',username=None, src_path=None, TESTING=False,u
         'mean_center_inputs': True,     # If True, mean centers continuous inputs
         'unit_variance_inputs': True,   # If True, continuous inputs have unit variance
         'max_run_speed': 100,           # If 1, has no effect. Scales running speed to be O(1). 
-        'use_events': False,            # If True, use detected events. If False, use raw deltaF/F 
+        'use_events': True,            # If True, use detected events. If False, use raw deltaF/F 
         'include_invalid_rois': False,  # If True, will fit to ROIs deemed invalid by the SDK. Note that the SDK provides dff traces, but not events, for invalid ROISs
         'interpolate_to_stimulus':True, # If True, interpolates the cell activity trace onto stimulus aligned timestamps
         'image_kernel_overlap_tol':5,   # Number of timesteps image kernels are allowed to overlap during entire session.

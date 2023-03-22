@@ -2,9 +2,9 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 import matplotlib.pyplot as plt
-
-import visual_behavior.data_access.loading as loading
-import visual_behavior.data_access.utilities as utilities
+import brain_observatory_analysis.dev.data_selection_tools as dst
+#import visual_behavior.data_access.loading as loading
+#import visual_behavior.data_access.utilities as utilities
 
 import visual_behavior_glm.GLM_fit_tools as gft
 import visual_behavior_glm.GLM_params as glm_params
@@ -82,13 +82,12 @@ def plot_dropout(across_df, dropout, ax):
     ax.tick_params(axis='both',labelsize=16)
 
 def get_cell_list(glm_version):
-    run_params = glm_params.load_run_json(glm_version)
-    include_4x2_data = run_params['include_4x2_data']
-    cells_table = loading.get_cell_table(platform_paper_only=True,include_4x2_data=include_4x2_data).reset_index()
-    cells_table['passive'] = cells_table['passive'].astype(bool)
-    cells_table = cells_table.query('not passive').copy()
-    cells_table = utilities.limit_to_last_familiar_second_novel_active(cells_table)
-    cells_table = utilities.limit_to_cell_specimen_ids_matched_in_all_experience_levels(cells_table)
+    # run_params = glm_params.load_run_json(glm_version)
+    cells_table = gft.load_ophys_cells_table().reset_index( )
+    experiment_table = gft.load_ophys_experiment_table()
+    experiment_table = dst.limit_to_last_familiar_second_novel(experiment_table)
+    cells_table = dst.limit_to_cell_specimen_ids_matched_in_all_experience_levels(cells_table, experiment_table)
+
     return cells_table
 
 def load_cells(glm_version,clean_df=True): 
@@ -185,23 +184,24 @@ def across_session_normalization(cell_specimen_id, glm_version):
     run_params = glm_params.load_run_json(glm_version)
     data = get_across_session_data(run_params,cell_specimen_id)
     score_df = compute_across_session_dropouts(data, run_params, cell_specimen_id)
-    filename = '/allen/programs/braintv/workgroups/nc-ophys/visual_behavior/ophys_glm/v_'+glm_version+'/across_session/'+str(cell_specimen_id)+'.csv' 
+    filename = '/allen/programs/braintv/workgroups/nc-ophys/mFish_glm/ophys_glm/v_'+glm_version+'/across_session/'+str(cell_specimen_id)+'.csv' 
     score_df.to_csv(filename)
 
     return data, score_df
 
-def get_across_session_data(run_params, cell_specimen_id):
+def get_across_session_data(run_params, cell_specimen_id, cells_table=None):
     '''
         Loads GLM information for each ophys experiment that this cell participated in.
         Very slow, takes about 3 minutes.
     '''
-
+    ## TO do - remove cache, use BOA to load experiment_table
     # Find which experiments this cell was in
-    include_4x2_data = run_params['include_4x2_data']
-    cells_table = loading.get_cell_table(platform_paper_only=True, include_4x2_data=include_4x2_data)
-    cells_table = cells_table.query('not passive').copy()
+    # include_4x2_data = run_params['include_4x2_data']
+    # cells_table = cache.get_ophys_cell_table()
+    # cells_table = cells_table.query('not passive').copy()
     cells_table = cells_table[cells_table['cell_specimen_id'] == cell_specimen_id]
-    cells_table = cells_table.query('last_familiar_active or first_novel or second_novel_active')
+    # cells_table = cells_table.query('last_familiar_active or first_novel or second_novel_active')
+
     oeids = cells_table['ophys_experiment_id']
 
     # For each experiment, load the session, design matrix, and fit dictionary

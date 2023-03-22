@@ -1,13 +1,14 @@
-import visual_behavior.plotting as vbp
-import visual_behavior.utilities as vbu
-import visual_behavior.data_access.utilities as utilities
-import visual_behavior.data_access.loading as loading
+# import visual_behavior.plotting as vbp
+# import visual_behavior.utilities as vbu
+# import visual_behavior.data_access.utilities as utilities
+# import visual_behavior.data_access.loading as loading
+# import brain_observatory_utilities.utilities as utilities
 import visual_behavior_glm.GLM_analysis_tools as gat
 import visual_behavior_glm.GLM_params as glm_params
 from mpl_toolkits.axes_grid1 import Divider, Size
 
 import copy
-import visual_behavior.database as db
+# import visual_behavior.database as db
 import matplotlib as mpl
 import seaborn as sns
 import scipy
@@ -25,7 +26,7 @@ from scipy import ndimage
 from scipy import stats
 import statsmodels.stats.multicomp as mc
 import scipy.cluster.hierarchy as sch
-import visual_behavior.visualization.utils as utils
+# import visual_behavior.visualization.utils as utils
 from sklearn.decomposition import PCA
 
 def project_colors():
@@ -577,7 +578,8 @@ def var_explained_matched(results_pivoted, run_params):
     mapper = {
         'Slc17a7-IRES2-Cre':'Excitatory',
         'Sst-IRES-Cre':'Sst Inhibitory',
-        'Vip-IRES-Cre':'Vip Inhibitory'
+        'Vip-IRES-Cre':'Vip Inhibitory',
+        'Gad2-IRES-Cre':'Gad2 Inhibitory',
         }
     results_pivoted['cell_type'] = [mapper[x] for x in results_pivoted['cre_line']]
     results_pivoted['variance_explained_percent'] = results_pivoted['variance_explained_full']*100
@@ -637,7 +639,8 @@ def var_explained_by_experience(results_pivoted, run_params,threshold = 0,savefi
     mapper = {
         'Slc17a7-IRES2-Cre':'Excitatory',
         'Sst-IRES-Cre':'Sst Inhibitory',
-        'Vip-IRES-Cre':'Vip Inhibitory'
+        'Vip-IRES-Cre':'Vip Inhibitory',
+        'Gad2-IRES-Cre':'Gad2 Inhibitory',
         }
     results_pivoted['cell_type'] = [mapper[x] for x in results_pivoted['cre_line']]
     results_pivoted['variance_explained_percent'] = results_pivoted['variance_explained_full']*100
@@ -1943,7 +1946,8 @@ def plot_kernel_comparison_by_kernel_excitation(weights_df, run_params,kernel,sa
     mapper = {
         'Slc17a7-IRES2-Cre':'Excitatory',
         'Sst-IRES-Cre':'Sst Inhibitory',
-        'Vip-IRES-Cre':'Vip Inhibitory'
+        'Vip-IRES-Cre':'Vip Inhibitory',
+        'Gad2-IRES-Cre':'Gad2 Inhibitory',
         }
     nk = kernel.replace('all-','')
 
@@ -2125,6 +2129,7 @@ def plot_kernel_comparison(weights_df, run_params, kernel, save_results=True, dr
         'Slc17a7-IRES2-Cre':'Excitatory',
         'Sst-IRES-Cre':'Sst Inhibitory',
         'Vip-IRES-Cre':'Vip Inhibitory',
+        'Gad2-IRES-Cre':'Gad2 Inhibitory',
         'Familiar':'Familiar',
         'Novel 1':'Novel',
         'Novel >1':'Novel +'
@@ -2154,6 +2159,7 @@ def plot_kernel_comparison(weights_df, run_params, kernel, save_results=True, dr
             'Slc17a7-IRES2-Cre':'Excitatory',
             'Sst-IRES-Cre':'Sst Inhibitory',
             'Vip-IRES-Cre':'Vip Inhibitory',
+            'Gad2-IRES-Cre':'Gad2 Inhibitory',
             'Familiar':'Familiar',
             'Novel 1':'Novel',
             'Novel >1':'Novel +'
@@ -5668,7 +5674,8 @@ def depth_heatmap(weights_df, run_params,metric='omission_responsive',just_codin
     mapper = {
         'Slc17a7-IRES2-Cre':'Excitatory',
         'Sst-IRES-Cre':'Sst Inhibitory',
-        'Vip-IRES-Cre':'Vip Inhibitory'
+        'Vip-IRES-Cre':'Vip Inhibitory',
+        'Gad2-IRES-Cre':'Gad2 Inhibitory',
         }
 
     fig, ax = plt.subplots(2,3,figsize=(12,8))

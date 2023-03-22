@@ -6,17 +6,21 @@ import pandas as pd
 import numpy as  np
 
 import visual_behavior_glm.GLM_params as glm_params
+import visual_behavior_glm.GLM_fit_tools as gft
 from simple_slurm import Slurm
-import visual_behavior.database as db
-from allensdk.brain_observatory.behavior.behavior_project_cache import VisualBehaviorOphysProjectCache
+import visual_behavior_glm.database as db
+from brain_observatory_analysis.ophys.experiment_loading import start_lamf_analysis
+from brain_observatory_analysis.dev import data_selection_tools as dst
+# from allensdk.brain_observatory.behavior.behavior_project_cache import VisualBehaviorOphysProjectCache
+# from mindscope_qc.data_access import behavior_ophys_experiment_dev as BOE_dev
 
 parser = argparse.ArgumentParser(description='deploy glm fits to cluster')
-parser.add_argument('--env-path', type=str, default='visual_behavior', metavar='path to conda environment to use')
-parser.add_argument('--version', type=str, default='0', metavar='glm version')
+parser.add_argument('--env-path', type=str, default='mfish_glm', metavar='path to conda environment to use')
+parser.add_argument('--version', type=str, default='testing_05_events', metavar='glm version')
 parser.add_argument(
     '--src-path', 
     type=str, 
-    default='',
+    default='/home/iryna.yavorska/code/visual_behavior_glm_mFish',
     metavar='src_path',
     help='folder where code lives'
 )
@@ -97,7 +101,7 @@ def select_experiments_for_testing(returns = 'experiment_ids'):
         experiment table for 10 pre-chosen experiments
     '''
 
-    test_experiments = pd.read_csv('/allen/programs/braintv/workgroups/nc-ophys/visual_behavior/ophys_glm/experiments_for_testing.csv')
+    test_experiments = pd.read_csv('/allen/programs/braintv/workgroups/nc-ophys/omFish_glm/ophys_glm/experiments_for_testing.csv')
 
     if returns == 'experiment_ids':
         return test_experiments['ophys_experiment_id'].unique()
@@ -117,7 +121,7 @@ def already_fit(oeid, version):
     check the weight_matrix_lookup_table to see if an oeid/glm_version combination has already been fit
     returns a boolean
     '''
-    conn = db.Database('visual_behavior_data')
+    conn = db.Database('omFish_glm')
     coll = conn['ophys_glm']['weight_matrix_lookup_table']
     document_count = coll.count_documents({'ophys_experiment_id':int(oeid), 'glm_version':str(version)})
     conn.close()
@@ -134,7 +138,7 @@ if __name__ == "__main__":
     print('python executable = {}'.format(python_executable))
     python_file = "{}/scripts/fit_glm.py".format(args.src_path)
 
-    stdout_basedir = "/allen/programs/braintv/workgroups/nc-ophys/visual_behavior/ophys_glm"
+    stdout_basedir = "//allen/programs/braintv/workgroups/nc-ophys/omFish_glm/ophys_glm"
     stdout_location = os.path.join(stdout_basedir, 'job_records_{}'.format(args.version))
     if not os.path.exists(stdout_location):
         print('making folder {}'.format(stdout_location))
@@ -145,24 +149,31 @@ if __name__ == "__main__":
         experiments_table = select_experiments_for_testing(returns = 'dataframe')
     elif args.targeted_restart:
         print('Using targeted restart list')
-        restart_table = r'//allen/programs/braintv/workgroups/nc-ophys/visual_behavior/ophys_glm/v_'+args.version+'/restart_table.csv'
+        restart_table = r'//allen/programs/braintv/workgroups/nc-ophys/omFish_glm/ophys_glm/v_'+args.version+'/restart_table.csv'
         print('Using experiments from: '+restart_table)
         experiments_table = pd.read_csv(restart_table)
         print('{} experiments to restart'.format(len(experiments_table)))
     else:
-        cache_dir = r'//allen/programs/braintv/workgroups/nc-ophys/visual_behavior/platform_paper_cache'
-        cache = VisualBehaviorOphysProjectCache.from_s3_cache(cache_dir=cache_dir)
-        experiments_table = cache.get_ophys_experiment_table()
-
+       
+        # cache = VisualBehaviorOphysProjectCache.from_lims()
+        # experiments_table = cache.get_ophys_experiment_table()
+        experiments_table = start_lamf_analysis()
+        # experiments_table = dst.limit_to_last_familiar_second_novel(experiments_table)
         run_params = glm_params.load_run_json(args.version)
-        if run_params['include_4x2_data']:
-            print('including 4x2 data')
-            experiments_table = experiments_table[(experiments_table.reporter_line!="Ai94(TITL-GCaMP6s)")].reset_index()      
-        else:
-            experiments_table = experiments_table[(experiments_table.project_code!="VisualBehaviorMultiscope4areasx2d")&(experiments_table.reporter_line!="Ai94(TITL-GCaMP6s)")].reset_index()
+        projects = gft.define_project_codes()
+        cre_lines = gft.define_cre_lines()
+        experience_levels = gft.define_experience_levels()
+        experiments_table = experiments_table[(experiments_table.project_code.isin(projects)) &
+                                               (experiments_table.experience_level.isin(experience_levels))]
+        # if run_params['include_4x2_data']:
+        #     print('including 4x2 data')
+        #     experiments_table = experiments_table[(experiments_table.reporter_line!="Ai94(TITL-GCaMP6s)")].reset_index()      
+        # else:
+        #     experiments_table = experiments_table[(experiments_table.project_code!="VisualBehaviorMultiscope4areasx2d")&(experiments_table.reporter_line!="Ai94(TITL-GCaMP6s)")].reset_index()
     print('experiments table loaded')
 
     # get ROI count for each experiment
+    experiments_table.reset_index(inplace=True, drop=False)
     experiments_table['roi_count'] = experiments_table['ophys_experiment_id'].map(lambda oeid: get_roi_count(oeid))
     print('roi counts extracted')
 
@@ -175,6 +186,7 @@ if __name__ == "__main__":
 
     experiment_ids = experiments_table['ophys_experiment_id'].values
     n_experiment_ids = len(experiment_ids)
+    print(f'number of experiments = {n_experiment_ids}')
 
     for experiment_id in experiment_ids[int(n_experiment_ids * args.job_start_fraction): int(n_experiment_ids * args.job_end_fraction)]:
 
