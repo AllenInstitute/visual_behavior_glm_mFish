@@ -174,6 +174,7 @@ if __name__ == "__main__":
     print('experiments table loaded')
 
     # get ROI count for each experiment
+    experiments_table.reset_index(inplace=True)
     experiments_table['roi_count'] = experiments_table['ophys_experiment_id'].map(lambda oeid: get_roi_count(oeid))
     print('roi counts extracted')
 
