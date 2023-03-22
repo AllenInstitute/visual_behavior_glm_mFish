@@ -40,13 +40,13 @@ def define_project_codes():
     project_codes=['LearningmFISHTask1A', 'LearningmFISHDevelopment']
     return project_codes
 
-def define_experience_level():
+def define_experience_levels():
     experience_level=['Familiar', 'Novel 1', 'Novel >1']
     return experience_level
 
 def load_ophys_experiment_table(cre_lines=define_cre_lines(), 
         project_codes=define_project_codes(), 
-        experience_level=define_experience_level()):
+        experience_level=define_experience_levels()):
     '''
         Loads the ophys experiments table for Gad2 data
     '''
@@ -65,7 +65,7 @@ def load_ophys_experiment_table(cre_lines=define_cre_lines(),
 
 def load_ophys_cells_table(cre_lines=define_cre_lines(), 
         project_codes=define_project_codes(), 
-        experience_level=define_experience_level()):
+        experience_level=define_experience_levels()):
     '''
         Loads the ophys experiments table ffor Gad2 data
     '''
