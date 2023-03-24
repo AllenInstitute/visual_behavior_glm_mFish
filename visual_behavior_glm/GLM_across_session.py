@@ -77,8 +77,8 @@ def plot_dropout(across_df, dropout, ax):
     experience_levels = across_df['experience_level'].unique()
     colors = gvt.project_colors()
     for elevel in experience_levels:
-        eacross_df = across_df.query('experience_level == @elevel')
-        ax.plot(-eacross_df[dropout+'_within'],-eacross_df[dropout+'_across'],'o',color=colors[elevel])
+        across_df = across_df.query('experience_level == @elevel')
+        ax.plot(-across_df[dropout+'_within'],-across_df[dropout+'_across'],'o',color=colors[elevel])
     ax.set_xlabel(dropout+' within',fontsize=18)
     ax.set_ylabel(dropout+' across',fontsize=18)
     ax.tick_params(axis='both',labelsize=16)
@@ -117,7 +117,7 @@ def load_cells(glm_version,clean_df=True):
     print('Loading across session normalized dropout scores')
     for cell in tqdm(cells):
         try:
-            filename = '//allen/programs/braintv/workgroups/nc-ophys/visual_behavior/ophys_glm/v_'+glm_version+'/across_session/'+str(cell)+'.csv'
+            filename = '//allen/programs/braintv/workgroups/nc-ophys/omFish_glm/ophys_glm/v_'+glm_version+'/across_session/'+str(cell)+'.csv'
             score_df = pd.read_csv(filename)
             score_df['cell_specimen_id'] = cell
             if clean_df:
@@ -150,18 +150,21 @@ def load_cells(glm_version,clean_df=True):
  
     # Construct dataframe of cells that could not load, for debugging purposes
     if len(fail_to_load) > 0:
-        fail_df = cells_table.query('cell_specimen_id in @fail_to_load')
+        # fail_df = cells_table.query('cell_specimen_id in @fail_to_load')
         # The above command was behaving inconsistently. The code block
         # below is equivalent, including it for posterity. 
-        # cells_table = cells_table.set_index('cell_specimen_id')
-        # fail_df = cells_table.loc[fail_to_load]
+        cells_table = cells_table.set_index('cell_specimen_id')
+        fail_df = cells_table.loc[fail_to_load]
     else:
         fail_df = pd.DataFrame()
         fail_df['cell_specimen_id'] = []
 
+    print('Total number of cells: '+str(len(cells)))
+    print('Found across session normalized dropout scores for '+str(len(across_df['cell_specimen_id'].unique()))+' cells')
+    print('Failed to load across session normalized dropout scores for '+str(len(fail_df.index.unique()))+' cells')
     # Assert that we have the correct number of cells
     assert len(across_df) + len(fail_df) == len(cells)*3, "incorrect number of cells"
-    assert len(across_df['cell_specimen_id'].unique())+len(fail_df['cell_specimen_id'].unique()) == len(cells), "incorrect number of cells"
+    assert len(across_df['cell_specimen_id'].unique())+len(fail_df.index.unique()) == len(cells), "incorrect number of cells"
 
     return across_df, fail_df 
 
@@ -186,7 +189,7 @@ def across_session_normalization(cell_specimen_id, glm_version):
     run_params = glm_params.load_run_json(glm_version)
     data = get_across_session_data(run_params,cell_specimen_id)
     score_df = compute_across_session_dropouts(data, run_params, cell_specimen_id)
-    filename = '/allen/programs/braintv/workgroups/nc-ophys/mFish_glm/ophys_glm/v_'+glm_version+'/across_session/'+str(cell_specimen_id)+'.csv' 
+    filename = '//allen/programs/braintv/workgroups/nc-ophys/omFish_glm/ophys_glm/v_'+glm_version+'/across_session/'+str(cell_specimen_id)+'.csv' 
     score_df.to_csv(filename)
 
     return data, score_df
@@ -201,8 +204,10 @@ def get_across_session_data(run_params, cell_specimen_id):
     # include_4x2_data = run_params['include_4x2_data']
     experiment_table = gft.load_ophys_experiment_table()
     experiment_table_sel = dst.limit_to_last_familiar_second_novel(experiment_table)
+    print('Found {} experiments with all three sessions'.format(len(experiment_table_sel)))  
     cells_table = gft.load_ophys_cells_table()
     cells_table = dst.limit_to_cell_specimen_ids_matched_in_all_experience_levels(cells_table, experiment_table_sel)
+    print('Found {} cells in all three sessions'.format(len(cells_table)))
     cells_table = cells_table[cells_table['cell_specimen_id'] == cell_specimen_id]
 
     oeids = cells_table['ophys_experiment_id']
