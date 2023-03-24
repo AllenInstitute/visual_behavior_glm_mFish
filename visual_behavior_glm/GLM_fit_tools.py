@@ -52,14 +52,11 @@ def load_ophys_experiment_table(cre_lines=define_cre_lines(),
     '''
     experiment_table = start_lamf_analysis() #cache.get_ophys_experiment_table()
 
-    if not cre_lines:
-        experiment_table = experiment_table[experiment_table.project_code.isin(project_codes)]
-    
-    # if  not project_codes:
+    experiment_table = experiment_table[experiment_table.project_code.isin(project_codes)]
+  
     #     experiment_table = experiment_table[experiment_table.cre_line.isin(cre_lines)]
-        
-    if not experience_level:
-            experiment_table = experiment_table[experiment_table.experience_level.isin(experience_level)]
+
+    experiment_table = experiment_table[experiment_table.experience_level.isin(experience_level)]
 
     return experiment_table
 
@@ -109,7 +106,7 @@ def load_fit_experiment(ophys_experiment_id, run_params):
     fit = gat.load_fit_pkl(run_params, ophys_experiment_id)
     experiment = load_data(ophys_experiment_id, run_params)
 
-    if fit is None:
+    if fit == 0:
         KeyError('Fit not found for oeid: '+str(ophys_experiment_id))
     
     # num_weights gets populated during stimulus interpolation
