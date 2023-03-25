@@ -2,7 +2,7 @@
 # import visual_behavior.utilities as vbu
 # import visual_behavior.data_access.utilities as utilities
 # import visual_behavior.data_access.loading as loading
-# import brain_observatory_utilities.utilities as utilities
+import brain_observatory_utilities.utilities as utilities
 import visual_behavior_glm.GLM_analysis_tools as gat
 import visual_behavior_glm.GLM_params as glm_params
 from mpl_toolkits.axes_grid1 import Divider, Size
@@ -1610,7 +1610,7 @@ def plot_all_kernel_comparison(weights_df, run_params, drop_threshold=0,session_
 
     # Set up which sessions to plot
     active_only  = ['licks','hits','misses']
-    passive_only = ['passive_change']
+    # training_only = ['training']
  
     # Iterate over list of dropouts
     for kernel in run_params['kernels']:
@@ -1619,11 +1619,18 @@ def plot_all_kernel_comparison(weights_df, run_params, drop_threshold=0,session_
 
         # Determine which sessions to plot
         if kernel in active_only:
-            session_filter = [1,3,4,6]
-        elif kernel in passive_only:
-            session_filter = [2,5]
+            session_filter = ['OPHYS_1_images_A','OPHYS_4_images_B','OPHYS_6_images_B']
+    #     elif kernel in training_only:
+    #         session_filter = ['TRAINING_0_gratings_autorewards_15min', 'TRAINING_1_gratings',
+    #    'TRAINING_2_gratings_flashed', 'TRAINING_3_images_A_10uL_reward',
+    #    'TRAINING_4_images_A_training', 'TRAINING_5_images_A_epilogue',
+    #    'TRAINING_5_images_A_handoff_ready']
         else:
-            session_filter = [1,2,3,4,5,6]
+            session_filter = ['TRAINING_0_gratings_autorewards_15min', 'TRAINING_1_gratings',
+       'TRAINING_2_gratings_flashed', 'TRAINING_3_images_A_10uL_reward',
+       'TRAINING_4_images_A_training', 'TRAINING_5_images_A_epilogue',
+       'TRAINING_5_images_A_handoff_ready', 'OPHYS_1_images_A',
+       'OPHYS_4_images_B', 'OPHYS_6_images_B']
 
         try:
             # plot the coding fraction
