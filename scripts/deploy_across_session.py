@@ -10,7 +10,7 @@ import visual_behavior_glm.database as db
 import visual_behavior_glm.GLM_across_session as gas
 
 parser = argparse.ArgumentParser(description='deploy glm fits to cluster')
-parser.add_argument('--env-path', type=str, default='omfish_glm', metavar='path to conda environment to use')
+parser.add_argument('--env-path', type=str, default='/home/iryna.yavorska/anaconda3/envs/mfish_glm/', metavar='path to conda environment to use')
 
 def already_fit(cell_id,glm_version):
     filepath = "//allen/programs/braintv/workgroups/nc-ophys/omFish_glm/ophys_glm/v_"+glm_version+"/across_session/"+str(cell_id)+".csv"
