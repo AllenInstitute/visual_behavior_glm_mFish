@@ -48,6 +48,10 @@ def define_equipment_names():
     equipment_names=['MESO.1', 'MESO.2']
     return equipment_names
 
+def define_area_names():
+    area_names=['VISal', 'VISam', 'VISp', 'VISl']
+    return area_names
+
 def load_ophys_experiment_table(cre_lines=define_cre_lines(), 
         project_codes=define_project_codes(), 
         experience_level=define_experience_levels()):
