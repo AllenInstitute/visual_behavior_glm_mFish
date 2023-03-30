@@ -44,6 +44,10 @@ def define_experience_levels():
     experience_level=['Familiar', 'Novel 1', 'Novel >1']
     return experience_level
 
+def define_equipment_names():
+    equipment_names=['MESO.1', 'MESO.2']
+    return equipment_names
+
 def load_ophys_experiment_table(cre_lines=define_cre_lines(), 
         project_codes=define_project_codes(), 
         experience_level=define_experience_levels()):
