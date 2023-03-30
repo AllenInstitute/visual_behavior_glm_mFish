@@ -36,7 +36,7 @@ if __name__ == "__main__":
     job_string = "--cell {} --version {}"
 
     n_cell_ids = len(cell_ids)
-
+    print('n_cell_ids = {}'.format(n_cell_ids))
     for cell_id in cell_ids:
         if already_fit(cell_id,glm_version):
             print('already fit, skipping')
