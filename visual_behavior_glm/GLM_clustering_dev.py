@@ -1416,7 +1416,6 @@ def get_cluster_fractions_per_location(cluster_meta, cluster_metrics):
     return location_fractions
 
 
-
 def get_n_clusters_cre():
     ''' Number of clusters used in clustering per cre line'''
     n_clusters_cre = {'Slc17a7-IRES2-Cre': 10,
