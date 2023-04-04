@@ -3504,7 +3504,7 @@ def plot_population_perturbation(results_pivoted, run_params, dropouts_to_show =
 
     # Add additional columns about experience levels
     experiments_table = loading.get_platform_paper_experiment_table(include_4x2_data=run_params['include_4x2_data'])
-    experiment_table_columns = experiments_table.reset_index()[['ophys_experiment_id','last_familiar_active','second_novel_active','cell_type','binned_depth']]
+    experiment_table_columns = experiments_table.reset_index()[['ophys_experiment_id','last_familiar_active','second_novel_active','cell_type','bisect_layer']]
     results_pivoted = results_pivoted.merge(experiment_table_columns, on='ophys_experiment_id')
    
     # Cells Matched across all three experience levels 
@@ -3637,7 +3637,7 @@ def plot_population_averages_by_depth(results_pivoted, run_params, dropouts_to_s
     
     # Add additional columns about experience levels
     experiments_table = loading.get_platform_paper_experiment_table(include_4x2_data=run_params['include_4x2_data'])
-    experiment_table_columns = experiments_table.reset_index()[['ophys_experiment_id','last_familiar_active','second_novel_active','cell_type','binned_depth']]
+    experiment_table_columns = experiments_table.reset_index()[['ophys_experiment_id','last_familiar_active','second_novel_active','cell_type','bisect_layer']]
     results_pivoted = results_pivoted.merge(experiment_table_columns, on='ophys_experiment_id')
     
     # plotting variables
@@ -3761,7 +3761,7 @@ def plot_population_averages_by_area(results_pivoted, run_params, dropouts_to_sh
  
     # Add additional columns about experience levels
     experiments_table = loading.get_platform_paper_experiment_table(include_4x2_data=run_params['include_4x2_data'])
-    experiment_table_columns = experiments_table.reset_index()[['ophys_experiment_id','last_familiar_active','second_novel_active','cell_type','binned_depth']]
+    experiment_table_columns = experiments_table.reset_index()[['ophys_experiment_id','last_familiar_active','second_novel_active','cell_type','bisect_layer']]
     results_pivoted = results_pivoted.merge(experiment_table_columns, on='ophys_experiment_id')
    
     # plotting variables
@@ -3929,7 +3929,7 @@ def plot_population_averages(results_pivoted, run_params, dropouts_to_show = ['a
     
     # Add additional columns about experience levels
     experiments_table = loading.get_platform_paper_experiment_table(include_4x2_data=run_params['include_4x2_data'])
-    experiment_table_columns = experiments_table.reset_index()[['ophys_experiment_id','last_familiar_active','second_novel_active','cell_type','binned_depth']]
+    experiment_table_columns = experiments_table.reset_index()[['ophys_experiment_id','last_familiar_active','second_novel_active','cell_type','bisect_layer']]
     if across_session:
         results_pivoted = results_pivoted.merge(experiment_table_columns, on='ophys_experiment_id',suffixes=('','_y'))
     else:
@@ -5677,18 +5677,18 @@ def depth_heatmap(weights_df, run_params,metric='omission_responsive',just_codin
     else:
         df = weights_df.query('experience_level in ["Novel 1"]').copy() 
     
-    df['binned_depth'] = [bin_depth(x) for x in df['imaging_depth']]       
+    df['bisect_layer'] = [bin_depth(x) for x in df['imaging_depth']]       
     df['change_responsive'] = df['misses'] < 0
     df['omissions_index'] = [np.argmax(x) for x in df['omissions_weights']]
     df['omission_responsive'] = df['omissions_index'] <=24
     df['omission_coding'] = df['omissions'] < 0 
 
     if just_coding:
-        fraction = df.query('omissions < 0').groupby(['cre_line','targeted_structure','binned_depth'])[metric].mean()   
-        fraction['n'] = df.query('omissions < 0').groupby(['cre_line','targeted_structure','binned_depth'])[metric].count()
+        fraction = df.query('omissions < 0').groupby(['cre_line','targeted_structure','bisect_layer'])[metric].mean()   
+        fraction['n'] = df.query('omissions < 0').groupby(['cre_line','targeted_structure','bisect_layer'])[metric].count()
     else:
-        fraction = df.groupby(['cre_line','targeted_structure','binned_depth'])[[metric]].mean()
-        fraction['n'] = df.groupby(['cre_line','targeted_structure','binned_depth'])[metric].count()
+        fraction = df.groupby(['cre_line','targeted_structure','bisect_layer'])[[metric]].mean()
+        fraction['n'] = df.groupby(['cre_line','targeted_structure','bisect_layer'])[metric].count()
     fraction[metric+'_ci'] = 1.96*np.sqrt((fraction[metric]*(1-fraction[metric]))/fraction['n'])
 
     cre_lines = ['Vip-IRES-Cre','Sst-IRES-Cre','Slc17a7-IRES2-Cre'] 
