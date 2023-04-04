@@ -48,7 +48,7 @@ def load_fit_pkl(run_params, ophys_experiment_id):
         return fit
     else:
         KeyError(f'no fit file found for {ophys_experiment_id}')
-        #return None
+        return None
 
 def log_error(error_dict, keys_to_check = []):
     '''
@@ -346,7 +346,7 @@ def get_weights_matrix_from_mongo(ophys_experiment_id, glm_version):
     if w_matrix_lookup_table.count_documents(lookup_table_document) == 0:
         warnings.warn('there is no record of a the weights matrix for oeid {}, glm_version {}'.format(ophys_experiment_id, glm_version))
         conn.close()
-        return None
+        return w_matrix_lookup_table, w_matrix_database #None
     else:
         lookup_result = list(w_matrix_lookup_table.find(lookup_table_document))[0]
         # get the id of the xarray
@@ -1611,7 +1611,7 @@ def check_cv_nans(fit):
 
 
 def reshape_rspm_by_experience(results_pivoted = None, model_output_type='adj_fraction_change_from_full',
-                 glm_version='24_events_all_L2_optimize_by_session',
+                 glm_version='',
                  ophys_experiment_ids_to_use = None,
                  drop_duplicated_cells = True,
                  cutoff=None, features=None, single=False, save_df=False,

@@ -1598,10 +1598,10 @@ def add_continuous_kernel_by_label(kernel_name, design, run_params, experiment,f
             'glm_version':run_params['version']
         }
         # log error to mongo
-        # gat.log_error(
-        #     run_params['kernel_error_dict'][kernel_name],
-        #     keys_to_check = ['oeid', 'glm_version', 'kernel_name']
-        # )
+        gat.log_error(
+            run_params['kernel_error_dict'][kernel_name],
+            keys_to_check = ['oeid', 'glm_version', 'kernel_name']
+        )
         return design
     else:
         #assert length of values is same as length of timestamps
@@ -1727,11 +1727,11 @@ def add_discrete_kernel_by_label(kernel_name,design, run_params,experiment,fit):
             'oeid':experiment.metadata['ophys_experiment_id'], 
             'glm_version':run_params['version']
         }
-        # log error to mongo: # commenting this out since mongodb 'omFish' database is not set up, ira 23.02.14
-        # gat.log_error(
-        #     run_params['kernel_error_dict'][kernel_name],
-        #     keys_to_check = ['oeid', 'glm_version', 'kernel_name']
-        # )
+        # log error to mongo: 
+        gat.log_error(
+            run_params['kernel_error_dict'][kernel_name],
+            keys_to_check = ['oeid', 'glm_version', 'kernel_name']
+        )
         return design       
     else:
         events_vec, timestamps = np.histogram(event_times, bins=fit['fit_trace_bins'])
