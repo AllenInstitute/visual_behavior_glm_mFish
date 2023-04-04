@@ -4,6 +4,7 @@
 # import visual_behavior.data_access.loading as loading
 import brain_observatory_utilities.utilities as utilities
 import visual_behavior_glm.GLM_analysis_tools as gat
+import visual_behavior_glm.GLM_fit_tools as gft
 import visual_behavior_glm.GLM_params as glm_params
 from mpl_toolkits.axes_grid1 import Divider, Size
 
@@ -58,6 +59,7 @@ def project_colors():
         'Vip-IRES-Cre':(197/255,176/255,213/255),
         'vip':(197/255,176/255,213/255),
         'Vip Inhibitory':(197/255,176/255,213/255),
+        'Gad2-IRES-Cre':(176/255,176/255,176/255),
         '1':(148/255,29/255,39/255),
         '2':(222/255,73/255,70/255),
         '3':(239/255,169/255,150/255),
@@ -395,8 +397,8 @@ def plot_glm_version_comparison(comparison_table=None, results=None, versions_to
     return jointplot
 
 def plot_significant_cells(results_pivoted,dropout, dropout_threshold=0,save_fig=False,filename=None):
-    sessions = np.array([1,2,3,4,5,6])
-    cre = ["Sst-IRES-Cre", "Vip-IRES-Cre","Slc17a7-IRES2-Cre"]
+    sessions = np.array([1,2,3])
+    cre = gft.define_cre_lines()
     colors=['C0','C1','C2']
     plt.figure(figsize=(6,4))
     
@@ -404,7 +406,7 @@ def plot_significant_cells(results_pivoted,dropout, dropout_threshold=0,save_fig
     for i,c in enumerate(cre):
         cells = results_pivoted.query('cre_line == @c')       
         num_cells = len(cells)
-        cell_count = np.array([np.sum(cells.query('session_number == @x')[dropout] < dropout_threshold) for x in sessions])
+        cell_count = np.array([np.sum(cells.query('selected_session_number == @x')[dropout] < dropout_threshold) for x in sessions])
         cell_p = cell_count/num_cells
         cell_err = 1.98*np.sqrt((cell_p*(1-cell_p))/cell_count)
         plt.errorbar(sessions-0.05, cell_p, yerr=cell_err, color=colors[i],label=c)
@@ -420,10 +422,12 @@ def plot_significant_cells(results_pivoted,dropout, dropout_threshold=0,save_fig
         plt.savefig(filename)
 
 def plot_all_significant_cells(results_pivoted,run_params):
-    dropouts = set(run_params['dropouts'].keys())
+    set(run_params['dropouts'].keys())
     dropouts.remove('Full')
+    # dropouts = results_pivoted.keys().drop(['cre_line', 'cell_specimen_id', 'selected_session_number', 'ophys_experiment_id', 'cell_roi_id',])
     filename = run_params['output_dir']+'/'+'significant_cells/'
     for d in dropouts:
+        print(d)
         plot_significant_cells(results_pivoted, d, save_fig=True, filename=filename)
         plt.close(plt.gcf().number)
 
@@ -805,7 +809,7 @@ def compare_var_explained_by_version(results=None, fig=None, ax=None, test_data=
             extra = extra+"_equipment"
         if sort_by_signal:
             extra = extra+"_by_dff"
-    filepath= '/allen/programs/braintv/workgroups/nc-ophys/visual_behavior/ophys_glm/version_comparisons/variance_explained'+extra+'.png'
+    filepath= '/allen/programs/braintv/workgroups/nc-ophys/omFish_glm/ophys_glm/version_comparisons/variance_explained'+extra+'.png'
     print(filepath)
     plt.savefig(filepath)
 
@@ -1664,7 +1668,7 @@ def plot_compare_across_kernels(weights_df, run_params, kernels,session_filter=[
     problem_sessions = get_problem_sessions() 
 
     # Filter by Equipment
-    equipment_list = ["CAM2P.3","CAM2P.4","CAM2P.5","MESO.1"]
+    equipment_list = gft.define_equipment_names()
     if equipment_filter == "scientifica": 
         equipment_list = ["CAM2P.3","CAM2P.4","CAM2P.5"]
         filter_string += '_scientifica'
@@ -1673,7 +1677,7 @@ def plot_compare_across_kernels(weights_df, run_params, kernels,session_filter=[
         filter_string += '_mesoscope'
     
     # Filter by Cell Type    
-    cell_list = ['Sst-IRES-Cre','Slc17a7-IRES2-Cre','Vip-IRES-Cre']     
+    cell_list = gft.define_cre_lines()     
     if cell_filter == "sst":
         cell_list = ['Sst-IRES-Cre']
         filter_string += '_sst'
@@ -1683,9 +1687,12 @@ def plot_compare_across_kernels(weights_df, run_params, kernels,session_filter=[
     elif cell_filter == "slc":
         cell_list = ['Slc17a7-IRES2-Cre']
         filter_string += '_slc'
+    elif cell_filter == "gad2":
+        cell_list = ['Gad2-IRES-Cre']
+        filter_string += '_gad2'
 
     # Determine filename
-    if session_filter != [1,2,3,4,5,6]:
+    if session_filter != [1,2,3]:
         filter_string+= '_sessions_'+'_'.join([str(x) for x in session_filter])   
     if area_filter != ['VISp','VISl']:
         filter_string+='_area_'+'_'.join(area_filter)
@@ -1770,7 +1777,7 @@ def plot_compare_across_kernels_inner(ax, df,kernels,group,color,linestyles,time
         ax.plot(time_vec, mean_kernels[k],linestyle=linestyles[dex],color=color,label=group+' '+k,linewidth=linewidth)
 
 ## TODO update
-def plot_perturbation(weights_df, run_params, kernel, drop_threshold=0,session_filter=[1,2,3,4,5,6],equipment_filter="all",depth_filter=[0,1000],cell_filter="all",area_filter=['VISp','VISl'],normalize=True,CMAP='Blues',in_ax=None):
+def plot_perturbation(weights_df, run_params, kernel, drop_threshold=0,session_filter=[1,2,3],equipment_filter="all",depth_filter=[0,1000],cell_filter="all",area_filter=['VISp','VISl'],normalize=True,CMAP='Blues',in_ax=None):
 
     if 'dropout_threshold' in run_params:
         threshold = run_params['dropout_threshold']
@@ -1781,16 +1788,19 @@ def plot_perturbation(weights_df, run_params, kernel, drop_threshold=0,session_f
     problem_sessions = get_problem_sessions()
  
     # Filter by Equipment
-    equipment_list = ["CAM2P.3","CAM2P.4","CAM2P.5","MESO.1"]
+    equipment_list = gft.define_equipment_names()
     if equipment_filter == "scientifica": 
         equipment_list = ["CAM2P.3","CAM2P.4","CAM2P.5"]
         filter_string += '_scientifica'
-    elif equipment_filter == "mesoscope":
+    elif equipment_filter == "mesoscope1":
         equipment_list = ["MESO.1"]
-        filter_string += '_mesoscope'
+        filter_string += '_mesoscope1'
+    elif equipment_filter == "mesoscope2":
+        equipment_list = ["MESO.2"]
+        filter_string += '_mesoscope2'
     
     # Filter by Cell Type    
-    cell_list = ['Sst-IRES-Cre','Slc17a7-IRES2-Cre','Vip-IRES-Cre']     
+    cell_list = gft.define_cre_lines()   
     if cell_filter == "sst":
         cell_list = ['Sst-IRES-Cre']
         filter_string += '_sst'
@@ -1800,9 +1810,12 @@ def plot_perturbation(weights_df, run_params, kernel, drop_threshold=0,session_f
     elif cell_filter == "slc":
         cell_list = ['Slc17a7-IRES2-Cre']
         filter_string += '_slc'
+    elif cell_filter == "gad2":
+        cell_list = ['Gad2-IRES-Cre']
+        filter_string += '_gad2'
 
     # Determine filename
-    if session_filter != [1,2,3,4,5,6]:
+    if session_filter != [1,2,3]:
         filter_string+= '_sessions_'+'_'.join([str(x) for x in session_filter])   
     if depth_filter !=[0,1000]:
         filter_string+='_depth_'+str(depth_filter[0])+'_'+str(depth_filter[1])
@@ -1938,9 +1951,9 @@ def plot_kernel_comparison_by_experience(weights_df, run_params, kernel,threshol
         print('Figure saved to: '+run_params['fig_kernels_dir']+'/'+kernel+'_novel1_kernel'+extra+'.svg')
         print('Figure saved to: '+run_params['fig_kernels_dir']+'/'+kernel+'_novelp1_kernel'+extra+'.svg')
 
-    k, fig_v , ax_v =plot_kernel_comparison(weights_df,run_params,kernel,save_results=False,session_filter=['Familiar','Novel 1','Novel >1'],cell_filter='Vip-IRES-Cre',compare=['experience_level'],threshold=threshold,drop_threshold=drop_threshold)   
-    k, fig_s , ax_s =plot_kernel_comparison(weights_df,run_params,kernel,save_results=False,session_filter=['Familiar','Novel 1','Novel >1'],cell_filter='Sst-IRES-Cre',compare=['experience_level'],threshold=threshold,drop_threshold=drop_threshold)   
-    k, fig_e , ax_e =plot_kernel_comparison(weights_df,run_params,kernel,save_results=False,session_filter=['Familiar','Novel 1','Novel >1'],cell_filter='Slc17a7-IRES2-Cre',compare=['experience_level'],threshold=threshold,drop_threshold=drop_threshold)   
+    k, fig_v , ax_v =plot_kernel_comparison(weights_df,run_params,kernel,save_results=False,session_filter=gft.define_experience_levels(),cell_filter='Vip-IRES-Cre',compare=['experience_level'],threshold=threshold,drop_threshold=drop_threshold)   
+    k, fig_s , ax_s =plot_kernel_comparison(weights_df,run_params,kernel,save_results=False,session_filter=gft.define_experience_levels(),cell_filter='Sst-IRES-Cre',compare=['experience_level'],threshold=threshold,drop_threshold=drop_threshold)   
+    k, fig_e , ax_e =plot_kernel_comparison(weights_df,run_params,kernel,save_results=False,session_filter=gft.define_experience_levels(),cell_filter='Slc17a7-IRES2-Cre',compare=['experience_level'],threshold=threshold,drop_threshold=drop_threshold)   
     if savefig:
         fig_v.savefig(run_params['fig_kernels_dir']+'/'+kernel+'_vip_kernel'+extra+'.svg')
         fig_s.savefig(run_params['fig_kernels_dir']+'/'+kernel+'_sst_kernel'+extra+'.svg')
@@ -2003,16 +2016,16 @@ def plot_kernel_comparison(weights_df, run_params, kernel, save_results=True, dr
     #threshold = 0
  
     # Filter by Equipment
-    equipment_list = ["CAM2P.3","CAM2P.4","CAM2P.5","MESO.1"]
+    equipment_list = gft.define_equipment_names()
     if equipment_filter == "scientifica": 
         equipment_list = ["CAM2P.3","CAM2P.4","CAM2P.5"]
         filter_string += '_scientifica'
     elif equipment_filter == "mesoscope":
-        equipment_list = ["MESO.1"]
+        equipment_list = ["MESO.1", 'MESO.2']
         filter_string += '_mesoscope'
     
     # Filter by Cell Type    
-    cell_list = ['Sst-IRES-Cre','Slc17a7-IRES2-Cre','Vip-IRES-Cre']     
+    cell_list = gft.define_cre_lines()    
     if (cell_filter == "sst") or (cell_filter == "Sst-IRES-Cre"):
         cell_list = ['Sst-IRES-Cre']
         filter_string += '_sst'
@@ -2024,11 +2037,11 @@ def plot_kernel_comparison(weights_df, run_params, kernel, save_results=True, dr
         filter_string += '_slc'
 
     # Determine filename
-    if session_filter != [1,2,3,4,5,6]:
+    if session_filter != [1,2,3]:
         filter_string+= '_sessions_'+'_'.join([str(x) for x in session_filter])   
     if depth_filter !=[0,1000]:
         filter_string+='_depth_'+str(depth_filter[0])+'_'+str(depth_filter[1])
-    if area_filter != ['VISp','VISl']:
+    if area_filter != gft.define_area_names():
         filter_string+='_area_'+'_'.join(area_filter)
     filename = os.path.join(run_params['fig_kernels_dir'],kernel+'_comparison_by_'+'_and_'.join(compare)+filter_string+'.svg')
 
@@ -2246,7 +2259,7 @@ def plot_kernel_comparison_inner(ax, df,label,color,linestyle,time_vec, plot_err
     ax.plot(time_vec, df_norm.mean(axis=0),linestyle=linestyle,label=label,color=color,linewidth=linewidth)
     return df_norm.mean(axis=0)
 
-def kernel_evaluation(weights_df, run_params, kernel, save_results=False, drop_threshold=0,session_filter=['Familiar','Novel 1','Novel >1'],equipment_filter="all",cell_filter='all',area_filter=['VISp','VISl'],depth_filter=[0,1000],filter_sessions_on='experience_level',plot_dropout_sorted=True):  
+def kernel_evaluation(weights_df, run_params, kernel, save_results=False, drop_threshold=0,session_filter=gft.define_experience_levels(),equipment_filter="all",cell_filter='all',area_filter=['VISp','VISl'],depth_filter=[0,1000],filter_sessions_on='experience_level',plot_dropout_sorted=True):  
     '''
         Plots the average kernel for each cell line. 
         Plots the heatmap of the kernels sorted by time. 
@@ -2272,16 +2285,16 @@ def kernel_evaluation(weights_df, run_params, kernel, save_results=False, drop_t
 
     # Filter by Equipment
     filter_string=''
-    equipment_list = ["CAM2P.3","CAM2P.4","CAM2P.5","MESO.1"]
+    equipment_list = gft.define_equipment_names()
     if equipment_filter == "scientifica": 
         equipment_list = ["CAM2P.3","CAM2P.4","CAM2P.5"]
         filter_string += '_scientifica'
     elif equipment_filter == "mesoscope":
-        equipment_list = ["MESO.1"]
+        equipment_list = ["MESO.1", "MESO.2"]
         filter_string += '_mesoscope'
     
     # Filter by Cell Type    
-    cell_list = ['Sst-IRES-Cre','Slc17a7-IRES2-Cre','Vip-IRES-Cre']     
+    cell_list = gft.define_cre_lines()    
     if (cell_filter == "sst") or (cell_filter == "Sst-IRES-Cre"):
         cell_list = ['Sst-IRES-Cre']
         filter_string += '_sst'
@@ -2777,7 +2790,7 @@ def kernel_evaluation(weights_df, run_params, kernel, save_results=False, drop_t
         plt.savefig(filename) 
         plt.savefig(filename_svg)
 
-def all_kernels_evaluation(weights_df, run_params, drop_threshold=0,session_filter=['Familiar','Novel 1','Novel >1'],equipment_filter="all",cell_filter='all',area_filter=['VISp','VISl'],depth_filter=[0,1000]): 
+def all_kernels_evaluation(weights_df, run_params, drop_threshold=0,session_filter=gft.define_experience_levels(),equipment_filter="all",cell_filter='all',area_filter=['VISp','VISl'],depth_filter=[0,1000]): 
     '''
         Makes the analysis plots for all kernels in this model version. Excludes intercept and time kernels
                 
@@ -2819,7 +2832,7 @@ def all_kernels_evaluation(weights_df, run_params, drop_threshold=0,session_filt
     for k in crashed:
         print('Crashed - '+k) 
 
-def plot_kernel_heatmap(weights_sorted, time_vec,kernel, run_params, ncells = {},ax=None,extra='',zlims=None,session_filter=['Familiar','Novel 1','Novel >1'],savefig=False):
+def plot_kernel_heatmap(weights_sorted, time_vec,kernel, run_params, ncells = {},ax=None,extra='',zlims=None,session_filter=gft.define_experience_levels(),savefig=False):
     if ax==None:
         #fig,ax = plt.subplots(figsize=(8,4))
         height = 4
@@ -3854,7 +3867,8 @@ def get_matched_cells_with_ve(cells_table, results_pivoted,threshold):
     return cells_with_ve.index.values
 
 
-def plot_population_averages(results_pivoted, run_params, dropouts_to_show = ['all-images','omissions','behavioral','task'],sharey=True,include_zero_cells=True,boxplot=False,add_stats=True,extra='',strict_experience_matching=False,plot_by_cell_type=False,across_session=False,stats_on_across=True, matched_with_variance_explained=False,matched_ve_threshold=0,savefig=False):
+def plot_population_averages(results_pivoted, run_params, dropouts_to_show = ['all-images','omissions','behavioral','task'],sharey=True,include_zero_cells=True,boxplot=False,add_stats=True,extra='',
+                             strict_experience_matching=False,plot_by_cell_type=False,across_session=False,stats_on_across=True, matched_with_variance_explained=False,matched_ve_threshold=0,savefig=False):
     '''
         Plots the average dropout scores for each cre line, on each experience level. 
         Includes all cells, and matched only cells. 
@@ -5626,7 +5640,7 @@ def clustering_kernels(weights_df, run_params, kernel,just_coding=False,pca_by_e
         ax[index,1].tick_params(axis='both',labelsize=16)
 
         weights = weights.sort_values(by=['pc1'])
-        for eindex, experience_level in enumerate(['Familiar','Novel 1','Novel >1']):
+        for eindex, experience_level in enumerate(gft.define_experience_levels()):
             if pca_by_experience:
                 eweights = weights.query('experience_level ==@experience_level').copy()
                 x = np.vstack(eweights[kernel+'_weights'].values) 
