@@ -149,7 +149,7 @@ if __name__ == "__main__":
         experiments_table = select_experiments_for_testing(returns = 'dataframe')
     elif args.targeted_restart:
         print('Using targeted restart list')
-        restart_table = r'//allen/programs/braintv/workgroups/nc-ophys/omFish_glm/ophys_glm/v_'+args.version+'/restart_table.csv'
+        restart_table = '//allen/programs/braintv/workgroups/nc-ophys/omFish_glm/ophys_glm/v_'+args.version+'/restart_table.csv'
         print('Using experiments from: '+restart_table)
         experiments_table = pd.read_csv(restart_table)
         print('{} experiments to restart'.format(len(experiments_table)))
