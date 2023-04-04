@@ -579,7 +579,7 @@ def plot_feature_matrix_sorted(feature_matrix, cluster_labels, sort_col='cluster
         else:
             ax=axes[i]
         print(cre_line)
-        sorted_cluster_meta_cre = cluster_labels #[cluster_labels.cre_line == cre_line].sort_values(by=sort_col)
+        sorted_cluster_meta_cre = cluster_labels[cluster_labels.cre_line == cre_line].sort_values(by=sort_col)
         cell_order = sorted_cluster_meta_cre['cell_specimen_id'].values
         label_values = sorted_cluster_meta_cre[sort_col].values
 
