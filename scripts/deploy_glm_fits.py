@@ -16,7 +16,7 @@ from brain_observatory_analysis.dev import data_selection_tools as dst
 
 parser = argparse.ArgumentParser(description='deploy glm fits to cluster')
 parser.add_argument('--env-path', type=str, default='/home/iryna.yavorska/anaconda3/envs/mfish_glm/', metavar='path to conda environment to use')
-parser.add_argument('--version', type=str, default='testing_05_events', metavar='glm version')
+parser.add_argument('--version', type=str, default='testing_06_events', metavar='glm version')
 parser.add_argument(
     '--src-path', 
     type=str, 
@@ -27,7 +27,7 @@ parser.add_argument(
 parser.add_argument(
     '--force-overwrite', 
     action='store_true',
-    default=False,
+    default=True,
     dest='force_overwrite', 
     help='Overwrites existing fits for this version if enabled. Otherwise only experiments without existing results are fit'
 )
@@ -101,7 +101,7 @@ def select_experiments_for_testing(returns = 'experiment_ids'):
         experiment table for 10 pre-chosen experiments
     '''
 
-    test_experiments = pd.read_csv('/allen/programs/braintv/workgroups/nc-ophys/omFish_glm/ophys_glm/experiments_for_testing.csv')
+    test_experiments = pd.read_csv('//allen/programs/braintv/workgroups/nc-ophys/omFish_glm/ophys_glm/experiments_for_testing.csv')
 
     if returns == 'experiment_ids':
         return test_experiments['ophys_experiment_id'].unique()
@@ -158,7 +158,6 @@ if __name__ == "__main__":
         # cache = VisualBehaviorOphysProjectCache.from_lims()
         # experiments_table = cache.get_ophys_experiment_table()
         experiments_table = start_lamf_analysis()
-        # experiments_table = dst.limit_to_last_familiar_second_novel(experiments_table)
         run_params = glm_params.load_run_json(args.version)
         projects = gft.define_project_codes()
         cre_lines = gft.define_cre_lines()

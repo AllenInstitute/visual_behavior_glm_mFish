@@ -344,9 +344,10 @@ def get_weights_matrix_from_mongo(ophys_experiment_id, glm_version):
     w_matrix_database = conn['ophys_glm_xarrays']
 
     if w_matrix_lookup_table.count_documents(lookup_table_document) == 0:
-        warnings.warn('there is no record of a the weights matrix for oeid {}, glm_version {}'.format(ophys_experiment_id, glm_version))
+        # warnings.warn('there is no record of a the weights matrix for oeid {}, glm_version {}'.format(ophys_experiment_id, glm_version))
+        print('\nthere is no record of a the weights matrix for oeid {}, glm_version {}'.format(ophys_experiment_id, glm_version))
         conn.close()
-        return w_matrix_lookup_table, w_matrix_database #None
+        return None
     else:
         lookup_result = list(w_matrix_lookup_table.find(lookup_table_document))[0]
         # get the id of the xarray
@@ -378,6 +379,7 @@ def log_weights_matrix_to_mongo(glm):
     w_matrix_database = conn['ophys_glm_xarrays']
 
     if w_matrix_lookup_table.count_documents(lookup_table_document) >= 1:
+        print('found weights matrix for {}'.format(glm.ophys_experiment_id))
         # if weights matrix for this experiment/version has already been logged, we need to replace it
         lookup_result = list(w_matrix_lookup_table.find(lookup_table_document))[0]
 
@@ -397,6 +399,7 @@ def log_weights_matrix_to_mongo(glm):
         _id = lookup_result.pop('_id')
         w_matrix_lookup_table.update_one({'_id':_id}, {"$set": db.clean_and_timestamp(lookup_result)})
     else:
+        print('no weights matrix found for {}'.format(glm.ophys_experiment_id))
         # if the weights matrix had not already been logged
 
         # write the weights matrix to mongo
@@ -420,7 +423,7 @@ def get_experiment_table(glm_version, include_4x2_data=False):
     
     Warning: this takes a couple of minutes to run.
     '''
-    experiment_table = df.get_mFish_experiment_table().reset_index()
+    experiment_table = db.get_mFish_experiment_table().reset_index()
     dropout_summary = retrieve_results({'glm_version':glm_version}, results_type='summary')
     stdout_summary = get_stdout_summary(glm_version)
 
