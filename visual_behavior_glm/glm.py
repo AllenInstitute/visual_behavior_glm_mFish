@@ -104,7 +104,7 @@ class GLM(object):
                               'error_type':'failed_to_log_results',
                               'exception':e.args[0]}
                 keys_to_check = ['oeid', 'glm_version', 'error_type']
-                gat.lot_error(error_dict, keys_to_check)
+                gat.log_error(error_dict, keys_to_check)
         if log_weights:
             try:
                 print('logging W matrix to mongo')
@@ -117,7 +117,7 @@ class GLM(object):
                               'error_type':'failed_to_log_weights',
                               'exception':e.args[0]}
                 keys_to_check = ['oeid', 'glm_version', 'error_type']
-                gat.lot_error(error_dict, keys_to_check)
+                gat.log_error(error_dict, keys_to_check)
         print('done building GLM object')
 
     def _import_glm_fit_tools(self):
