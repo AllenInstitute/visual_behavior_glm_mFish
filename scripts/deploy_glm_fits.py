@@ -48,7 +48,7 @@ parser.add_argument(
 parser.add_argument(
     '--use-previous-fit', 
     action='store_true',
-    default=False,
+    default=True,
     dest='use_previous_fit', 
     help='use previous fit if it exists (boolean, default = False)'
 )
