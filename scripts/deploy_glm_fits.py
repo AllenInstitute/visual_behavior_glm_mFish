@@ -48,7 +48,7 @@ parser.add_argument(
 parser.add_argument(
     '--use-previous-fit', 
     action='store_true',
-    default=True,
+    default=False,
     dest='use_previous_fit', 
     help='use previous fit if it exists (boolean, default = False)'
 )
@@ -65,6 +65,13 @@ parser.add_argument(
     default=1.0,
     metavar='end_fraction',
     help='which fraction of all jobs to end on. useful if splitting jobs amongst users. Default = 1.0'
+)
+parser.add_argument(
+    '--run_params',
+    type=bool,
+    default=True,
+    metavar='run_params',
+    help='create run params json file'
 )
 
 def calculate_required_mem(roi_count):
@@ -145,6 +152,10 @@ if __name__ == "__main__":
         os.mkdir(stdout_location)
     print('stdout files will be at {}'.format(stdout_location))
 
+    if args.run_params:
+        from visual_behavior_glm import GLM_params
+        GLM_params.make_run_json(VERSION=args.version,src_path=args.src_path)
+
     if args.testing:
         experiments_table = select_experiments_for_testing(returns = 'dataframe')
     elif args.targeted_restart:
@@ -158,12 +169,14 @@ if __name__ == "__main__":
         # cache = VisualBehaviorOphysProjectCache.from_lims()
         # experiments_table = cache.get_ophys_experiment_table()
         experiments_table = start_lamf_analysis()
+        print('total number of oeids = {}'.format(len(experiments_table)))
         run_params = glm_params.load_run_json(args.version)
         projects = gft.define_project_codes()
         cre_lines = gft.define_cre_lines()
         experience_levels = gft.define_experience_levels()
         experiments_table = experiments_table[(experiments_table.project_code.isin(projects)) &
                                                (experiments_table.experience_level.isin(experience_levels))]
+        print('after selection number of oeids = {}'.format(len(experiments_table)))
         # if run_params['include_4x2_data']:
         #     print('including 4x2 data')
         #     experiments_table = experiments_table[(experiments_table.reporter_line!="Ai94(TITL-GCaMP6s)")].reset_index()      
@@ -185,7 +198,6 @@ if __name__ == "__main__":
 
     experiment_ids = experiments_table['ophys_experiment_id'].values
     n_experiment_ids = len(experiment_ids)
-    print(f'number of experiments = {n_experiment_ids}')
 
     for experiment_id in experiment_ids[int(n_experiment_ids * args.job_start_fraction): int(n_experiment_ids * args.job_end_fraction)]:
 
