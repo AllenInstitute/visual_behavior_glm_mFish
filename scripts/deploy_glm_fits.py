@@ -73,7 +73,7 @@ def calculate_required_mem(roi_count):
 
 def calculate_required_walltime(roi_count):
     '''calculate required walltime in hours'''
-    estimate= 10 + 0.125*roi_count
+    estimate= 10 + 0.3*roi_count
     return np.min([estimate,48]) 
 
 def select_experiments_for_testing(returns = 'experiment_ids'):
@@ -219,4 +219,4 @@ if __name__ == "__main__":
                     args_string,
                 )
             )
-            time.sleep(0.001)
+            time.sleep(0.1)

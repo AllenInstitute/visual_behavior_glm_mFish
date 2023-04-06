@@ -12,7 +12,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 
 import visual_behavior_glm.GLM_params as glm_params
-from mindscope_qc.data_access import behavior_ophys_experiment_dev as BehaviorOphysExperimentDev
+from brain_observatory_qc.data_access import behavior_ophys_experiment_dev as BehaviorOphysExperimentDev
 
 # import visual_behavior.data_access.loading as loading
 import visual_behavior_glm.database as db
