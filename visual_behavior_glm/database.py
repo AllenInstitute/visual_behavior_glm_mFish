@@ -14,7 +14,7 @@ from allensdk.core.authentication import credential_injector
 from allensdk.core.auth_config import LIMS_DB_CREDENTIAL_MAP
 from allensdk.brain_observatory.behavior.behavior_project_cache import VisualBehaviorOphysProjectCache
 from brain_observatory_analysis.ophys.experiment_loading import start_lamf_analysis
-from visual_behavior_glm.GLM_fit_tools import GLM_fit_tools as gft
+from visual_behavior_glm import GLM_fit_tools as gft
 
 
 class Database(object):
