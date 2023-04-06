@@ -2064,15 +2064,18 @@ def get_events_arr(experiment, timestamps_to_use):
     '''
     # Get events and trim off ends
     
-    try:
-        events_df = load_oasis_events_h5_to_df(h5_path=None, oeid=experiment.ophys_experiment_id)
-        events_df.set_index('cell_roi_id', inplace=True)
-        rois = experiment.events['cell_roi_id'].values
-        events_df = events_df.loc[rois]
-        all_events = np.stack(events_df['filtered_events'].values)
-    except:
-        print('!!! Did not find new events, trying to use old events...')
+    if hasattr(experiment, 'events'):
+        print('Found new events!')
         all_events = np.stack(experiment.events['filtered_events'].values)
+    else:
+        raise AttributeError('No new events found in experiment object')
+    # events_df = load_oasis_events_h5_to_df(h5_path=None, oeid=experiment.ophys_experiment_id)
+    # events_df.set_index('cell_roi_id', inplace=True)
+    # rois = experiment.events['cell_roi_id'].values
+    # events_df = events_df.loc[rois]
+    # except:
+    #     print('!!! Did not find new events, trying to use old events...')
+    #     all_events = np.stack(experiment.events['filtered_events'].values)
     
     all_events_to_use = all_events[:, timestamps_to_use]
 
