@@ -309,7 +309,7 @@ def log_results_to_mongo(glm):
 
     for df,collection in zip([full_results, results_summary], ['results_full','results_summary']):
         coll = conn['ophys_glm'][collection]
-
+        print('logging {} to mongo'.format(collection))
         for idx,row in df.iterrows():
             entry = row.to_dict()
             db.update_or_create(
