@@ -14,7 +14,6 @@ from allensdk.core.authentication import credential_injector
 from allensdk.core.auth_config import LIMS_DB_CREDENTIAL_MAP
 from allensdk.brain_observatory.behavior.behavior_project_cache import VisualBehaviorOphysProjectCache
 from brain_observatory_analysis.ophys.experiment_loading import start_lamf_analysis
-from visual_behavior_glm import GLM_fit_tools as gft
 
 
 class Database(object):
@@ -595,9 +594,12 @@ def update_or_create(collection, document, keys_to_check, force_write=False):
         if collection.find_one(query) is None:
             # insert a document if this experiment/cell doesn't already exist
             collection.insert_one(simplify_entry(document))
+            print('adding new document to collection [{}]'.format(collection.name))
         else:
             # update a document if it does exist
-            collection.update_one(query, {"$set": simplify_entry(document)})
+            print('document already exists in collection [{}]. Not updating to save time'.format(collection.name))
+            # collection.update_one(query, {"$set": simplify_entry(document)})
+            # print('updating existing document in collection [{}]'.format(collection.name))
 
 
 def get_labtracks_id_from_specimen_id(specimen_id, show_warnings=True):
@@ -813,14 +815,14 @@ def get_cell_dff_data(search_dict={}, return_id=False):
 
     return res
 
-def get_mFish_experiment_table(project_codes = gft.define_project_codes()):
+def get_mFish_experiment_table(project_codes = ['LearningmFISHTask1A', 'LearningmFISHDevelopment']):
     ''' Returns ophys experiment table from lims for mFish learning project'''
     
     ophys_experiment_table = start_lamf_analysis()
     ophys_experiment_table = ophys_experiment_table[ophys_experiment_table['project_code'].isin(project_codes )]
     return ophys_experiment_table
 
-def get_cells_table(project_codes = gft.define_project_codes(), pass_only = False):
+def get_cells_table(project_codes = ['LearningmFISHTask1A', 'LearningmFISHDevelopment'], pass_only = False):
     ''' Returns cells table from lims for mFish learning project'''
     cache = VisualBehaviorOphysProjectCache.from_lims()
     cells_table = cache.get_ophys_cells_table()
