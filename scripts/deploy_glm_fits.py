@@ -168,7 +168,7 @@ if __name__ == "__main__":
        
         # cache = VisualBehaviorOphysProjectCache.from_lims()
         # experiments_table = cache.get_ophys_experiment_table()
-        experiments_table = start_lamf_analysis(filter={'mouse_name':'Silicon'})
+        experiments_table = start_lamf_analysis()
         print('total number of oeids = {}'.format(len(experiments_table)))
         run_params = glm_params.load_run_json(args.version)
         projects = gft.define_project_codes()
@@ -176,6 +176,7 @@ if __name__ == "__main__":
         experience_levels = gft.define_experience_levels()
         experiments_table = experiments_table[(experiments_table.project_code.isin(projects)) &
                                                (experiments_table.experience_level.isin(experience_levels))]
+        experiments_table = experiments_table[(experiments_table.mouse_name.isin(['Silicon']))]
         print('after selection number of oeids = {}'.format(len(experiments_table)))
         # if run_params['include_4x2_data']:
         #     print('including 4x2 data')
