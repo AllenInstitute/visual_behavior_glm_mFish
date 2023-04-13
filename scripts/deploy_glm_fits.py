@@ -16,7 +16,7 @@ from brain_observatory_analysis.dev import data_selection_tools as dst
 
 parser = argparse.ArgumentParser(description='deploy glm fits to cluster')
 parser.add_argument('--env-path', type=str, default='/home/iryna.yavorska/anaconda3/envs/mfish_glm/', metavar='path to conda environment to use')
-parser.add_argument('--version', type=str, default='testing_07_events', metavar='glm version')
+parser.add_argument('--version', type=str, default='Silicon', metavar='glm version')
 parser.add_argument(
     '--src-path', 
     type=str, 
@@ -168,7 +168,7 @@ if __name__ == "__main__":
        
         # cache = VisualBehaviorOphysProjectCache.from_lims()
         # experiments_table = cache.get_ophys_experiment_table()
-        experiments_table = start_lamf_analysis()
+        experiments_table = start_lamf_analysis(filter={'mouse_name':'Silicon'})
         print('total number of oeids = {}'.format(len(experiments_table)))
         run_params = glm_params.load_run_json(args.version)
         projects = gft.define_project_codes()
