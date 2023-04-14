@@ -16,7 +16,7 @@ from brain_observatory_analysis.dev import data_selection_tools as dst
 
 parser = argparse.ArgumentParser(description='deploy glm fits to cluster')
 parser.add_argument('--env-path', type=str, default='/home/iryna.yavorska/anaconda3/envs/mfish_glm/', metavar='path to conda environment to use')
-parser.add_argument('--version', type=str, default='Copper', metavar='glm version')
+parser.add_argument('--version', type=str, default='01_nonridgit_events', metavar='glm version')
 parser.add_argument(
     '--src-path', 
     type=str, 
@@ -176,7 +176,7 @@ if __name__ == "__main__":
         experience_levels = gft.define_experience_levels()
         experiments_table = experiments_table[(experiments_table.project_code.isin(projects)) &
                                                (experiments_table.experience_level.isin(experience_levels))]
-        experiments_table = experiments_table[(experiments_table.mouse_name.isin(['Copper']))]
+        # experiments_table = experiments_table[(experiments_table.mouse_name.isin(['Copper']))]
         print('after selection number of oeids = {}'.format(len(experiments_table)))
         # if run_params['include_4x2_data']:
         #     print('including 4x2 data')
