@@ -2101,7 +2101,8 @@ def get_dff_arr(experiment, timestamps_to_use):
     timestamps_to_use is a boolean vector that contains which timestamps to use in the analysis
     '''
     # Get dff and trim off ends
-    all_dff = np.stack(experiment.dff_traces['dff'].values)
+    all_dff = np.stack(experiment.inner.dff_traces['dff'].values)
+    print('Using inner dff traces')
     all_dff_to_use = all_dff[:, timestamps_to_use]
 
     # Get the timestamps
