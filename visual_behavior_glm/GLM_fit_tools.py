@@ -74,7 +74,7 @@ def load_ophys_cells_table(cre_lines=define_cre_lines(),
         experience_level=define_experience_levels(), 
         clean=True):
     '''
-        Loads the ophys experiments table ffor Gad2 data
+        Loads the ophys experiments table for Gad2 data
     '''
     experiment_table = load_ophys_experiment_table(cre_lines, project_codes, experience_level)
     oeids = experiment_table.index.values
@@ -82,16 +82,20 @@ def load_ophys_cells_table(cre_lines=define_cre_lines(),
     cell_table = cache.get_ophys_cells_table()
     cell_table = cell_table[cell_table.ophys_experiment_id.isin(oeids)]
 
-    # Novel session from Copper mouse doesnt have registration, so ophys cell table will have N/A for cell_specimen_id. These are replaced with the good cell specimen ids from the copper mouse
+    # Novel session from Copper mouse doesnt have registration, so ophys cell table will have N/A for cell_specimen_id.
+    # These are replaced with the good cell specimen ids from the copper mouse
     if clean:
-        print('loading good cell specimen ids for copper mouse and replacing in cell table. If this is not desired, set clean=False')
-        gci_file = '//allen/programs/mindscope/workgroups/learning/analysis_plots/ophys/activity_correlation_lamf/nrsac/roi_match/copper_missing_osid_roi_table_nan_replaced.pkl'
+        print('loading good cell specimen ids for copper mouse and replacing in cell table.'
+              ' If this is not desired, set clean=False')
+        gci_file = '//allen/programs/mindscope/workgroups/learning/analysis_plots/ophys/activity_correlation_lamf/' \
+                   'nrsac/roi_match/copper_missing_osid_roi_table_nan_replaced.pkl'
         with open(gci_file, 'rb') as f:
             good_cids = pickle.load(f)
+            good_cids = good_cids.set_index('cell_roi_id')
             f.close()
 
         for index, row in good_cids.iterrows():
-            cell_table.at[row.name,'cell_specimen_id'] = row.cell_specimen_id
+            cell_table.at[row.name, 'cell_specimen_id'] = row.cell_specimen_id
 
     return cell_table
 
