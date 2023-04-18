@@ -11,6 +11,7 @@ from scipy.stats import kruskal
 from scipy.stats import ttest_ind
 from scipy.stats import sem
 from scipy.sparse import csgraph
+import pickle
 from scipy.stats import chisquare
 
 from sklearn.metrics import silhouette_score
@@ -633,7 +634,7 @@ def get_cluster_label_file_name(cre_lines, n_clusters_cre, prefix='cluster_label
     return cluster_file_name
 
 
-def get_cluster_labels(coclustering_matrices, cell_metadata, n_clusters_cre, save_dir=None, load=True):
+def get_cluster_labels(coclustering_matrix, cell_specimen_ids, n_clusters, save_dir=None, load=True):
     """
     if cluster_labels file exists in save_dir, load it, otherwise
     perform agglomerative clustering on co-clustering matrices to get cluster labels based on affinity matrix,
@@ -646,44 +647,38 @@ def get_cluster_labels(coclustering_matrices, cell_metadata, n_clusters_cre, sav
                         n_clusters_cre is selected based on silhouette scores
     returns a dataframe with cluster labels and IDs for each cell_specimen_id in each cre line
     """
-    cre_lines = get_cre_lines(cell_metadata)
-    cluster_file_name = get_cluster_label_file_name(cre_lines, n_clusters_cre)
-    cluster_file_path = os.path.join(save_dir, cluster_file_name)
-    if load:
+    if load and save_dir is not None:
+        cluster_file_path = os.path.join(save_dir, 'clustering', f'cluster_labels_{n_clusters}.h5')
         if os.path.exists(cluster_file_path):
-            print('loading cluster labels from', cluster_file_path)
-            cluster_labels = pd.read_hdf(cluster_file_path, key='df')
-        else:
-            get_labels = True
+            print('loading file...')
+            cluster_labels = pd.read_hdf(cluster_file_path , key='cluster_labels')
+            print('done.')
     else:
-        get_labels = True
-    if get_labels:
         print('generating cluster labels from coclustering matrix')
         from sklearn.cluster import AgglomerativeClustering
         cluster_labels = pd.DataFrame()
-        for i, cre_line in enumerate(cre_lines):
-            cell_specimen_ids = coclustering_matrices[cre_line].index
-            X = coclustering_matrices[cre_line].values
-            cluster = AgglomerativeClustering(n_clusters=n_clusters_cre[cre_line], affinity='euclidean',
-                                              linkage='average')
-            labels = cluster.fit_predict(X)
-            # make dictionary with labels for each cell specimen ID in this cre line
-            labels_dict = {'labels': labels, 'cell_specimen_id': cell_specimen_ids,
-                           'cre_line': [cre_line] * len(cell_specimen_ids)}
-            # turn it into a dataframe
-            labels_df = pd.DataFrame(data=labels_dict, columns=['labels', 'cell_specimen_id', 'cre_line'])
-            # get new cluster_ids based on size of clusters and add to labels_df
-            cluster_size_order = labels_df['labels'].value_counts().index.values
-            # translate between original labels and new IDS based on cluster size
-            labels_df['cluster_id'] = [np.where(cluster_size_order == label)[0][0] for label in labels_df.labels.values]
-            # concatenate with df for all cre lines
-            cluster_labels = pd.concat([cluster_labels, labels_df])
+        X = coclustering_matrix
+        cluster = AgglomerativeClustering(n_clusters=n_clusters, affinity='euclidean',
+                                                linkage='average')
+        labels = cluster.fit_predict(X)
+        # make dictionary with labels for each cell specimen ID in this cre line
+        labels_dict = {'labels': labels, 'cell_specimen_id': cell_specimen_ids,
+                            }
+        # turn it into a dataframe
+        cluster_labels = pd.DataFrame(data=labels_dict, columns=['labels', 'cell_specimen_id', 'cre_line'])
+        # get new cluster_ids based on size of clusters and add to labels_df
+        cluster_size_order = cluster_labels['labels'].value_counts().index.values
+        # translate between original labels and new IDS based on cluster size
+        cluster_labels['cluster_id'] = [np.where(cluster_size_order == label)[0][0] for label in cluster_labels.labels.values]
+            
         # add 1 to cluster labels so they start at 1 instead of 0
         cluster_labels['cluster_id'] = [cluster_id + 1 for cluster_id in cluster_labels.cluster_id.values]
-        # save it
+
         if save_dir:
+            cluster_file_path = os.path.join(save_dir, 'clustering', f'cluster_labels_{n_clusters}.h5')
             print('saving cluster_labels to', cluster_file_path)
             cluster_labels.to_hdf(cluster_file_path, key='df')
+            
     return cluster_labels
 
 
@@ -1420,8 +1415,8 @@ def get_n_clusters_cre():
     ''' Number of clusters used in clustering per cre line'''
     n_clusters_cre = {'Slc17a7-IRES2-Cre': 10,
                       'Sst-IRES-Cre': 5,
-                      'Vip-IRES-Cre': 10
-                      'Gad2-IRES-Cre': 6,'}
+                      'Vip-IRES-Cre': 10,
+                      'Gad2-IRES-Cre': 6}
     return n_clusters_cre
 
 
