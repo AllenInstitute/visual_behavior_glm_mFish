@@ -82,6 +82,7 @@ def load_ophys_cells_table(cre_lines=define_cre_lines(),
     cell_table = cache.get_ophys_cells_table()
     cell_table = cell_table[cell_table.ophys_experiment_id.isin(oeids)]
 
+    # Novel session from Copper mouse doesnt have registration, so ophys cell table will have N/A for cell_specimen_id. These are replaced with the good cell specimen ids from the copper mouse
     if clean:
         print('loading good cell specimen ids for copper mouse and replacing in cell table. If this is not desired, set clean=False')
         gci_file = '//allen/programs/mindscope/workgroups/learning/analysis_plots/ophys/activity_correlation_lamf/nrsac/roi_match/copper_missing_osid_roi_table_nan_replaced.pkl'
