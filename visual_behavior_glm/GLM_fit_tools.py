@@ -1,6 +1,7 @@
 import os
 import bz2
 import _pickle as cPickle
+import pickle
 import xarray as xr
 import numpy as np
 import pandas as pd
@@ -70,7 +71,8 @@ def load_ophys_experiment_table(cre_lines=define_cre_lines(),
 
 def load_ophys_cells_table(cre_lines=define_cre_lines(), 
         project_codes=define_project_codes(), 
-        experience_level=define_experience_levels()):
+        experience_level=define_experience_levels(), 
+        clean=True):
     '''
         Loads the ophys experiments table ffor Gad2 data
     '''
@@ -79,6 +81,16 @@ def load_ophys_cells_table(cre_lines=define_cre_lines(),
 
     cell_table = cache.get_ophys_cells_table()
     cell_table = cell_table[cell_table.ophys_experiment_id.isin(oeids)]
+
+    if clean:
+        print('loading good cell specimen ids for copper mouse and replacing in cell table. If this is not desired, set clean=False')
+        gci_file = '//allen/programs/mindscope/workgroups/learning/analysis_plots/ophys/activity_correlation_lamf/nrsac/roi_match/copper_missing_osid_roi_table_nan_replaced.pkl'
+        with open(gci_file, 'rb') as f:
+            good_cids = pickle.load(f)
+            f.close()
+
+        for index, row in good_cids.iterrows():
+            cell_table.at[row.name,'cell_specimen_id'] = row.cell_specimen_id
 
     return cell_table
 
