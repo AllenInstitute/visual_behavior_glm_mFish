@@ -425,7 +425,7 @@ def mapper(cre):
         'Slc17a7-IRES2-Cre':'Excitatory',
         'Sst-IRES-Cre':'Sst',
         'Vip-IRES-Cre':'Vip',
-        }
+        'Gad2-IREB2-Cre':'Inhibitory',}
     return mapper[cre]
 
 def add_hochberg_correction(table,test='chi_squared_'):
