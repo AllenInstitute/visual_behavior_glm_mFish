@@ -14,6 +14,7 @@ from allensdk.core.authentication import credential_injector
 from allensdk.core.auth_config import LIMS_DB_CREDENTIAL_MAP
 from allensdk.brain_observatory.behavior.behavior_project_cache import VisualBehaviorOphysProjectCache
 from brain_observatory_analysis.ophys.experiment_loading import start_lamf_analysis
+from visual_behavior_glm import GLM_fit_tools as gft
 
 
 class Database(object):
@@ -824,8 +825,7 @@ def get_mFish_experiment_table(project_codes = ['LearningmFISHTask1A', 'Learning
 
 def get_cells_table(project_codes = ['LearningmFISHTask1A', 'LearningmFISHDevelopment'], pass_only = False):
     ''' Returns cells table from lims for mFish learning project'''
-    cache = VisualBehaviorOphysProjectCache.from_lims()
-    cells_table = cache.get_ophys_cells_table()
+    cells_table = gft.load_ophys_cells_table()
     oeids = get_mFish_experiment_table(project_codes, pass_only).index_values
     cells_table = cells_table[cells_table['ophys_experiment_id'].isin(oeids)]
     return cells_table
