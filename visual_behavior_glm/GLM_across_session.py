@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+import pickle
 import brain_observatory_analysis.dev.data_selection_tools as dst
 #import visual_behavior.data_access.loading as loading
 #import visual_behavior.data_access.utilities as utilities
@@ -9,7 +10,6 @@ import brain_observatory_analysis.dev.data_selection_tools as dst
 import visual_behavior_glm.GLM_fit_tools as gft
 import visual_behavior_glm.GLM_params as glm_params
 import visual_behavior_glm.GLM_visualization_tools as gvt
-
 
 
 def make_across_run_params(glm_version):
@@ -92,7 +92,7 @@ def get_cell_list(glm_version):
 
     return cells_table
 
-def load_cells(glm_version,clean_df=True): 
+def load_cells(glm_version,clean_df=True, drop_bad_cells=True): 
     '''
         Loads all cells that have across session coding scores computed.
         prints the cell_specimen_id for any cell that cannot be loaded.
@@ -166,6 +166,11 @@ def load_cells(glm_version,clean_df=True):
     assert len(across_df) + len(fail_df) == len(cells)*3, "incorrect number of cells"
     assert len(across_df['cell_specimen_id'].unique())+len(fail_df.index.unique()) == len(cells), "incorrect number of cells"
 
+    if drop_bad_cells:
+        filename = '//allen/programs/braintv/workgroups/nc-ophys/omFish_glm/ophys_glm/v_'+glm_version+'/clustering/cells_to_remove.pkl'
+        with open(filename, 'rb') as f:
+            cells_to_remove = pickle.load(f)
+        across_df = across_df.query('cell_specimen_id not in @cells_to_remove')
     return across_df, fail_df 
 
 def compute_many_cells(cells,glm_version):
