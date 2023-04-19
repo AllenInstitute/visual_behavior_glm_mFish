@@ -169,8 +169,8 @@ def load_cells(glm_version,clean_df=True, drop_bad_cells=True):
     if drop_bad_cells:
         filename = '//allen/programs/braintv/workgroups/nc-ophys/omFish_glm/ophys_glm/v_'+glm_version+'/clustering/cells_to_remove.pkl'
         with open(filename, 'rb') as f:
-            cells_to_remove = pickle.load(f)
-        across_df = across_df.query('cell_specimen_id not in @cells_to_remove')
+            cells_to_remove = np.array(pickle.load(f))
+        across_df = across_df[across_df.cell_specimen_id.isin(cells_to_remove)==False]
     return across_df, fail_df 
 
 def compute_many_cells(cells,glm_version):
