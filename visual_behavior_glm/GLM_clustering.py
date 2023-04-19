@@ -8,8 +8,12 @@ from scipy.stats import fisher_exact
 import matplotlib.pyplot as plt
 # import visual_behavior.data_access.loading as loading
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from brain_observatory_analysis.utilities import image_utils as utils
 
-filedir = '//allen/programs/braintv/workgroups/nc-ophys/omFish_glm/ophys_glm/v_testing_04_events/figures/clustering/'
+def get_clustering_dir(version='01_nonridgit_events'):
+
+    filedir = f'//allen/programs/braintv/workgroups/nc-ophys/omFish_glm/ophys_glm/v_{version}/figures/clustering/'
+    return filedir
 
 def compare_stats(num_shuffles=1000):
     plt.figure()
@@ -141,8 +145,8 @@ def plot_proportions(df,areas=None,savefig=False,extra='',test='chi_squared_'):
     plot_proportion_cre(df,areas,  fig, ax[0], 'Vip-IRES-Cre',test=test)
     if savefig:
         extra = extra+'_'+test
-        plt.savefig(filedir+'cluster_proportions'+extra+'.svg')
-        plt.savefig(filedir+'cluster_proportions'+extra+'.png')
+        plt.savefig(get_clustering_dir()+'cluster_proportions'+extra+'.svg')
+        plt.savefig(get_clustering_dir()+'cluster_proportions'+extra+'.png')
 
 def compute_proportion_cre(df, cre,areas):
     '''
@@ -206,8 +210,8 @@ def plot_proportion_differences(df,areas=None):
     plot_proportion_differences_cre(df, areas, fig, ax[2], 'Slc17a7-IRES2-Cre')
     plot_proportion_differences_cre(df, areas, fig, ax[1], 'Sst-IRES-Cre')
     plot_proportion_differences_cre(df, areas, fig, ax[0], 'Vip-IRES-Cre')
-    plt.savefig(filedir+'cluster_proportion_differences.svg')
-    plt.savefig(filedir+'cluster_proportion_differences.png')
+    plt.savefig(get_clustering_dir()+'cluster_proportion_differences.svg')
+    plt.savefig(get_clustering_dir()+'cluster_proportion_differences.png')
 
 def compute_proportion_differences_cre(df, cre,areas):
     '''
@@ -252,9 +256,9 @@ def plot_cluster_proportions(df,areas=None):
     plot_cluster_proportion_cre(df,areas, fig, ax[2], 'Slc17a7-IRES2-Cre')
     plot_cluster_proportion_cre(df,areas, fig, ax[1], 'Sst-IRES-Cre')
     plot_cluster_proportion_cre(df,areas, fig, ax[0], 'Vip-IRES-Cre')
-    plt.savefig(filedir+'within_cluster_proportions.svg')
-    plt.savefig(filedir+'within_cluster_proportions.png')
-    plt.savefig(filedir + 'within_cluster_proportions.pdf')
+    plt.savefig(get_clustering_dir()+'within_cluster_proportions.svg')
+    plt.savefig(get_clustering_dir()+'within_cluster_proportions.png')
+    plt.savefig(get_clustering_dir() + 'within_cluster_proportions.pdf')
 
 def compute_cluster_proportion_cre(df, cre,areas):
     table = compute_proportion_cre(df, cre,areas)
@@ -309,8 +313,8 @@ def plot_cluster_percentages(df,areas=None):
     plot_cluster_percentage_cre(df,areas, fig, ax[2], 'Slc17a7-IRES2-Cre')
     plot_cluster_percentage_cre(df,areas, fig, ax[1], 'Sst-IRES-Cre')
     plot_cluster_percentage_cre(df,areas, fig, ax[0], 'Vip-IRES-Cre')
-    plt.savefig(filedir+'within_cluster_percentages.svg')
-    plt.savefig(filedir+'within_cluster_percentages.png')
+    plt.savefig(get_clustering_dir()+'within_cluster_percentages.svg')
+    plt.savefig(get_clustering_dir()+'within_cluster_percentages.png')
 
 def plot_cluster_percentage_cre(df,areas,fig,ax, cre,test='chi_squared_'):
     '''
@@ -496,7 +500,7 @@ def get_feature_matrix_for_cre_line(feature_matrix, cell_metadata, cre_line, dro
         feature_matrix_cre = feature_matrix_cre.dropna(axis=0)
     return feature_matrix_cre
 
-def plot_feature_matrix_for_cre_lines(feature_matrix, cluster_labels, use_abbreviated_labels=False, save_dir=filedir, folder=''):
+def plot_feature_matrix_for_cre_lines(feature_matrix, cluster_labels, use_abbreviated_labels=False, save_dir=get_clustering_dir(), folder=''):
     """
     plots the feature matrix used for clustering where feature matrix consists of cell_specimen_ids as rows,
     and features x experience levels as columns, for cells matched across experience levels
@@ -553,7 +557,7 @@ def plot_feature_matrix_for_cre_lines(feature_matrix, cluster_labels, use_abbrev
 
 
 def plot_feature_matrix_sorted(feature_matrix, cluster_labels, sort_col='cluster_id', use_abbreviated_labels=False,
-                               save_dir=filedir, folder='', suffix=''):
+                               save_dir=get_clustering_dir(), folder='', suffix=''):
     """
     plots feature matrix used for clustering sorted by sort_col
 
@@ -568,11 +572,12 @@ def plot_feature_matrix_sorted(feature_matrix, cluster_labels, sort_col='cluster
         cmap = 'Blues'
     cre_lines = get_cre_lines(cluster_labels)
     n_cre_lines = len(cre_lines)
+    n_clusters = len(cluster_labels.cluster_id.unique())
 
     figsize = (5*n_cre_lines, 7)
     fig, axes = plt.subplots(1, n_cre_lines, figsize=figsize)
 
-    for i, cre_line in enumerate(get_cre_lines(cluster_labels)):
+    for i, cre_line in enumerate(cre_lines):
         # get cell ids for this cre line in sorted order
         if n_cre_lines == 1:
             ax=axes
@@ -613,6 +618,108 @@ def plot_feature_matrix_sorted(feature_matrix, cluster_labels, sort_col='cluster
 
     fig.subplots_adjust(wspace=0.7)
     if save_dir:
-        utils.save_figure(fig, figsize, save_dir, folder, 'feature_matrix_sorted_by_' + sort_col + suffix)
+        utils.save_figure(fig, figsize, save_dir, folder, f'{n_clusters}_feature_matrix_sorted_by_' + sort_col + suffix)
+
+def plot_dropout_heatmap(cluster_meta, feature_matrix, cluster_id, cbar=False,
+                         abbreviate_features=False, abbreviate_experience=False,
+                         cluster_size_in_title=True, small_fontsize=False, ax=None):
+
+    # check if there are negative values in feature_matrix, if so, use diff cmap and set vmin to -1
+    if len(np.where(feature_matrix < 0)[0]) > 0:
+        vmin = -1
+        cmap = 'RdBu'
+    else:
+        vmin = 0
+        cmap = 'Blues'
+    cre_csids = cluster_meta.index.values
+    this_cluster_meta = cluster_meta[(cluster_meta['cluster_id'] == cluster_id)]
+    this_cluster_csids = this_cluster_meta['cell_specimen_id'].values
+    mean_dropout_df = feature_matrix.loc[this_cluster_csids].mean().unstack()
+    features = ['all-images', 'behavioral','omissions',  'task']
+    #mean_dropout_df = mean_dropout_df.loc[features]  # order regressors in a specific order
+
+    if ax is None:
+        fig, ax = plt.subplots()
+    ax = sns.heatmap(mean_dropout_df, cmap=cmap, vmin=vmin, vmax=1, ax=ax, cbar=cbar, cbar_kws={'label': 'coding score'})
+    if cluster_size_in_title:
+        # fraction is number of cells in this cluster vs all cells in this cre line
+        fraction_cre = len(this_cluster_csids) / float(len(cre_csids))
+        fraction = np.round(fraction_cre * 100, 1)
+        # set title and labels
+        ax.set_title('cluster ' + str(cluster_id) + '\n' + str(fraction) + '%, n=' + str(len(this_cluster_csids)))
+    else:
+        # title is cre line abbreviation and cluster #
+        cell_type = 'inhibitory'
+        ax.set_title(cell_type + ' cluster ' + str(cluster_id))
+    ax.set_yticks(np.arange(0.5, len(mean_dropout_df.index.values) + 0.5))
+    # if abbreviate_features:
+    #     # set yticks to abbreviated feature labels
+    #     feature_abbreviations = get_abbreviated_features(mean_dropout_df.index.values)
+    #     ax.set_yticklabels(feature_abbreviations, rotation=0)
+    # else:
+    ax.set_yticklabels(mean_dropout_df.index.values, rotation=0, fontsize=14)
+    # if abbreviate_experience:
+    #     # set xticks to abbreviated experience level labels
+    #     exp_level_abbreviations = get_abbreviated_experience_levels(mean_dropout_df.columns.values)
+    #     ax.set_xticklabels(exp_level_abbreviations, rotation=90)
+    # else:
+    ax.set_xticklabels(mean_dropout_df.columns.values, rotation=90, fontsize=14)
+    ax.set_ylim(0, mean_dropout_df.shape[0])
+    # invert y axis so images is always on top
+    ax.invert_yaxis()
+    ax.set_xlabel('')
+    return ax
+
+
+def plot_clusters_row(cluster_meta, feature_matrix, save_fig=True, tag=''):
+    filedir = get_clustering_dir()
+
+    cluster_ids = np.sort(cluster_meta.cluster_id.unique())
+    # if order to sort clusters is provided, use it
+
+    # cluster_remap = {}
+    # for new_id, old_id in enumerate(sort_order[cre_line]):
+    #     cluster_remap[old_id] = new_id + 1
+    # cluster_meta['cluster_id'].replace(cluster_remap, inplace=True)
+
+    n_clusters = len(cluster_ids)
+
+    n_rows = 1
+    figsize = (n_clusters * 3.5, n_rows * 2)
+    fig, ax = plt.subplots(n_rows, n_clusters, figsize=figsize, sharex='row', sharey='row')
+    # gridspec_kw={'height_ratios': [1, 0.75]})
+    ax = ax.ravel()
+    for i, cluster_id in enumerate(cluster_ids):
+        # plot mean dropout heatmap for this cluster
+        ax[i] = plot_dropout_heatmap(cluster_meta, feature_matrix, cluster_id,ax=ax[i])
+
+
+    fig.subplots_adjust(hspace=1.2, wspace=0.6)
+    # fig.suptitle(get_cell_type_for_cre_line(cre_line, cluster_meta), x=0.52, y=1.1, fontsize=16)
+    # fig.tight_layout()
+    if save_fig:
+        utils.save_figure(fig, figsize, filedir, '', f'mean_clusters_{n_clusters}_'+tag)
+
+
+def apply_roi_classifier(cell_table, filter_col = 'iscell_p0.2', filter_val=0):
+    
+    '''Laods results of a linear classifier, applying invalid roi filter to provided df, removes cell specimen ids associated with invalid rois'''
+
+    filename = '//allen/programs/mindscope/workgroups/learning/pipeline_validation/classify_rois_sac2023/'\
+               'LAMF_NR_SAC2023_iscell_lr_model_version2.pkl'
+    with open(filename, 'rb') as f:
+        cl_table = pickle.load(f)
+        f.close()
+
+    unfiltered_rois = cell_table.cell_roi_id.unique()
+    invalid_rois = cl_table[cl_table[filter_col]<=filter_val]['cell_roi_id'].values
+    matched_invalid_rois = np.intersect1d(invalid_rois, unfiltered_rois)
+    print(f'found {len(matched_invalid_rois)} invalid rois in the dataframe')
+    # get cell_specimn_ids with those invalid rois
+    invalid_cell_specimen_ids = cell_table[cell_table.cell_roi_id.isin(matched_invalid_rois)]['cell_specimen_id'].unique()
+    print(f'removing {len(invalid_cell_specimen_ids)} cell specimen ids')
+    cell_table_filtered = cell_table[cell_table.cell_specimen_id.isin(invalid_cell_specimen_ids)==False]
+    
+    return cell_table_filtered
 
 
