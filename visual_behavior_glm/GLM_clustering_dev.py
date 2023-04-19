@@ -634,7 +634,7 @@ def get_cluster_label_file_name(cre_lines, n_clusters_cre, prefix='cluster_label
     return cluster_file_name
 
 
-def get_cluster_labels(coclustering_matrix, cell_specimen_ids, n_clusters, save_dir=None, load=True):
+def get_cluster_labels(coclustering_matrix, cell_specimen_ids, n_clusters, cre_line=None, save_dir=None, load=True):
     """
     if cluster_labels file exists in save_dir, load it, otherwise
     perform agglomerative clustering on co-clustering matrices to get cluster labels based on affinity matrix,
@@ -674,6 +674,9 @@ def get_cluster_labels(coclustering_matrix, cell_specimen_ids, n_clusters, save_
         # add 1 to cluster labels so they start at 1 instead of 0
         cluster_labels['cluster_id'] = [cluster_id + 1 for cluster_id in cluster_labels.cluster_id.values]
 
+        if cre_line is not None:
+            cluster_labels['cre_line'] = cre_line
+            
         if save_dir:
             cluster_file_path = os.path.join(save_dir, 'clustering', f'cluster_labels_{n_clusters}.h5')
             print('saving cluster_labels to', cluster_file_path)
