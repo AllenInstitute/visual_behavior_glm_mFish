@@ -34,7 +34,7 @@ from brain_observatory_analysis.ophys.experiment_loading import start_lamf_analy
 cache = VisualBehaviorOphysProjectCache.from_lims()
 
 def define_cre_lines():
-    cre_lines=['Gad2_IRES_Cre']
+    cre_lines=['Gad2-IRES-Cre']
     return cre_lines
 
 def define_project_codes():
