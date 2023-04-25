@@ -19,6 +19,14 @@ import visual_behavior_glm.database as db
 
 from sklearn.decomposition import PCA
 
+def get_save_dir():
+    base_dir = '//allen/programs/braintv/workgroups/nc-ophys/omFish_glm/ophys_glm'
+    glm_version = '01_nonridgit_events'
+
+    save_dir = os.path.join(base_dir, 'v_' + glm_version)
+    return save_dir
+
+
 def load_fit_pkl(run_params, ophys_experiment_id):
     '''
         Loads the fit dictionary from the pkl file dumped by fit_experiment.
@@ -794,9 +802,9 @@ def process_session_to_df(oeid, run_params):
     '''
     # Get weights
     W = get_weights_matrix_from_mongo(int(oeid), run_params['version'])
-    
     # Make Dataframe with cell and experiment info
     session_df  = pd.DataFrame()
+    
     session_df['cell_specimen_id'] = W.cell_specimen_id.values
     session_df['ophys_experiment_id'] = [int(oeid)]*len(W.cell_specimen_id.values)  
     
@@ -835,8 +843,11 @@ def build_weights_df(run_params,results_pivoted, cache_results=False,load_cache=
     # Then pull the weights from each kernel into a dataframe
     sessions = []
     for index, oeid in enumerate(tqdm(oeids, desc='Iterating Sessions')):
-        session_df = process_session_to_df(oeid, run_params)
-        sessions.append(session_df)
+        try:
+            session_df = process_session_to_df(oeid, run_params)
+            sessions.append(session_df)
+        except:
+            print('Failed to process session {}'.format(oeid))
 
     # Merge all the session_dfs, and add more session level info
     weights_df = pd.concat(sessions,sort=False)
@@ -917,6 +928,8 @@ def build_weights_df(run_params,results_pivoted, cache_results=False,load_cache=
     weights_df['all-images_excited']= weights_df.apply(lambda x: kernel_excitation(x['all-images_weights']),axis=1)
 
     # Return weights_df
+    if cache_results:
+        weights_df.to_csv(get_save_dir() + '/weights_df.csv')
     return weights_df 
 
 def kernel_excitation(kernel):

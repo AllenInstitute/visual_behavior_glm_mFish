@@ -30,6 +30,8 @@ import scipy.cluster.hierarchy as sch
 # import visual_behavior.visualization.utils as utils
 from sklearn.decomposition import PCA
 
+
+
 def project_colors():
     '''
         Defines a color scheme for various conditions
@@ -396,7 +398,7 @@ def plot_glm_version_comparison(comparison_table=None, results=None, versions_to
 
     return jointplot
 
-def plot_significant_cells(results_pivoted,dropout, dropout_threshold=0,save_fig=False,filename=None):
+def plot_significant_cells(results_pivoted,dropout, dropout_threshold=0.05,save_fig=False,filename=None):
     sessions = np.array([1,2,3])
     cre = gft.define_cre_lines()
     colors=['C0','C1','C2']
@@ -404,7 +406,8 @@ def plot_significant_cells(results_pivoted,dropout, dropout_threshold=0,save_fig
     
     # Iterate over cre lines 
     for i,c in enumerate(cre):
-        cells = results_pivoted.query('cre_line == @c')       
+        cells = results_pivoted[results_pivoted['cre_line']==c]   
+        print(len(cells))   
         num_cells = len(cells)
         cell_count = np.array([np.sum(cells.query('selected_session_number == @x')[dropout] < dropout_threshold) for x in sessions])
         cell_p = cell_count/num_cells
@@ -413,6 +416,8 @@ def plot_significant_cells(results_pivoted,dropout, dropout_threshold=0,save_fig
 
     plt.legend()
     plt.ylim(bottom=0)
+    plt.xticks([1,2,3])
+    # plt.xticks(['Familiar','Novel','Novel+'])
     plt.xlabel('Session #')
     plt.ylabel('Fraction Cells Significant')
     plt.title(dropout + ', threshold: '+str(dropout_threshold))
@@ -422,7 +427,7 @@ def plot_significant_cells(results_pivoted,dropout, dropout_threshold=0,save_fig
         plt.savefig(filename)
 
 def plot_all_significant_cells(results_pivoted,run_params):
-    set(run_params['dropouts'].keys())
+    dropouts = set(run_params['dropouts'].keys())
     dropouts.remove('Full')
     # dropouts = results_pivoted.keys().drop(['cre_line', 'cell_specimen_id', 'selected_session_number', 'ophys_experiment_id', 'cell_roi_id',])
     filename = run_params['output_dir']+'/'+'significant_cells/'
@@ -1636,14 +1641,14 @@ def plot_all_kernel_comparison(weights_df, run_params, drop_threshold=0,session_
        'TRAINING_5_images_A_handoff_ready', 'OPHYS_1_images_A',
        'OPHYS_4_images_B', 'OPHYS_6_images_B']
 
-        try:
-            # plot the coding fraction
-            filepath = run_params['fig_kernels_dir']
-            plot_kernel_comparison(weights_df, run_params, kernel, drop_threshold=drop_threshold, session_filter=session_filter, equipment_filter=equipment_filter, depth_filter=depth_filter, cell_filter=cell_filter, area_filter=area_filter, compare=compare, plot_errors=plot_errors)
-        except Exception as e:
-            print(e)
-            # Track failures
-            fail.append(kernel)
+        
+        # plot the coding fraction
+        filepath = run_params['fig_kernels_dir']
+        plot_kernel_comparison(weights_df, run_params, kernel, drop_threshold=drop_threshold, session_filter=session_filter, equipment_filter=equipment_filter, depth_filter=depth_filter, cell_filter=cell_filter, area_filter=area_filter, compare=compare, plot_errors=plot_errors)
+        # except Exception as e:
+        #     print(e)
+        #     # Track failures
+        #     fail.append(kernel)
     
         # Close figure
         plt.close(plt.gcf().number)
@@ -1653,7 +1658,7 @@ def plot_all_kernel_comparison(weights_df, run_params, drop_threshold=0,session_
         print('The following kernels failed')
         print(fail) 
 
-def plot_compare_across_kernels(weights_df, run_params, kernels,session_filter=[1,2,3,4,5,6], equipment_filter="all",cell_filter="all", compare=[],area_filter=['VISp','VISl'],title=None): #TODO
+def plot_compare_across_kernels(weights_df, run_params, kernels,session_filter=[1,2,3], equipment_filter="all",cell_filter="all", compare=[],area_filter=['VISp','VISl'],title=None): #TODO
     '''
         compare multiple different kernels to each other 
     ''' 
@@ -1983,7 +1988,10 @@ def plot_kernel_comparison_by_kernel_excitation(weights_df, run_params,kernel,sa
     plot_kernel_comparison(weights_df,run_params,kernel,session_filter=['Novel 1'],cell_filter='Vip-IRES-Cre',compare=[kernel+'_excited'], set_title='Vip Inhibitory, Novel 1, '+nk,save_results=savefig)
     plot_kernel_comparison(weights_df,run_params,kernel,session_filter=['Novel >1'],cell_filter='Vip-IRES-Cre',compare=[kernel+'_excited'],set_title='Vip Inhibitory, Novel >1, '+nk,save_results=savefig)
 
-def plot_kernel_comparison(weights_df, run_params, kernel, save_results=True, drop_threshold=0,session_filter=['Familiar','Novel 1','Novel >1'],equipment_filter="all",depth_filter=[0,1000],cell_filter="all",area_filter=['VISp','VISl'],compare=['cre_line'],plot_errors=False,save_kernels=False,fig=None, ax=None,fs1=20,fs2=16,show_legend=True,filter_sessions_on='experience_level',image_set=['familiar','novel'],threshold=0,set_title=None): 
+def plot_kernel_comparison(weights_df, run_params, kernel, save_results=True, drop_threshold=0,session_filter=['Familiar','Novel 1','Novel >1'],equipment_filter="all",depth_filter=[0,1000],cell_filter=None,area_filter=['VISp','VISl'],
+                           compare=['cre_line'],plot_errors=False,save_kernels=True,fig=None, ax=None,fs1=20,fs2=16,show_legend=True,
+                           filter_sessions_on='experience_level',image_set=['familiar','novel'],
+                           threshold=0,set_title=None): 
     '''
         Plots the average kernel across different comparisons groups of cells
         First applies hard filters, then compares across remaining cells
@@ -1997,7 +2005,7 @@ def plot_kernel_comparison(weights_df, run_params, kernel, save_results=True, dr
         drop_threshold,         the minimum adj_fraction_change_from_full for the dropout model of just dropping this kernel
         session_filter,         The list of session numbers to include
         equipment_filter,       "scientifica" or "mesoscope" filter, anything else plots both 
-        cell_filter,            "sst","vip","slc", anything else plots all types
+        cell_filter,            "sst","vip","gad2", anything else plots all types
         area_filter,            the list of targeted_structures to include
         compare (list of str)   list of categorical labels in weights_df to split on and compare
                                 First entry of compare determines color of the line, second entry determines linestyle
@@ -2035,6 +2043,9 @@ def plot_kernel_comparison(weights_df, run_params, kernel, save_results=True, dr
     elif (cell_filter == "slc") or (cell_filter == "Slc17a7-IRES2-Cre"):
         cell_list = ['Slc17a7-IRES2-Cre']
         filter_string += '_slc'
+    elif (cell_filter == "gad") or (cell_filter == "Gad2-IRES-Cre"):
+        cell_list = ['Gad2-IRES-Cre']
+        filter_string += '_gad'
 
     # Determine filename
     if session_filter != [1,2,3]:
@@ -2043,7 +2054,8 @@ def plot_kernel_comparison(weights_df, run_params, kernel, save_results=True, dr
         filter_string+='_depth_'+str(depth_filter[0])+'_'+str(depth_filter[1])
     if area_filter != gft.define_area_names():
         filter_string+='_area_'+'_'.join(area_filter)
-    filename = os.path.join(run_params['fig_kernels_dir'],kernel+'_comparison_by_'+'_and_'.join(compare)+filter_string+'.svg')
+    # filename = os.path.join(run_params['fig_kernels_dir'],kernel+'_comparison_by_'+'_and_'.join(compare)+filter_string+'.png')
+    filename = os.path.join(run_params['fig_kernels_dir'],kernel+'_comparison_by.png')
 
     # Set up time vectors.
     if kernel in ['preferred_image', 'all-images']:
@@ -2183,14 +2195,14 @@ def plot_kernel_comparison(weights_df, run_params, kernel, save_results=True, dr
             'Familiar':'Familiar',
             'Novel 1':'Novel',
             'Novel >1':'Novel +'
-            }
-
-        if len(session_filter) > 1:
-            session_title=cell_filter
-            session_title=mapper[session_title]
-        else:
-            session_title = mapper[session_filter[0]]
- 
+             }
+        # print(session_filter)
+        # if len(session_filter) > 1:
+        #     session_title=cell_filter
+        #     session_title=mapper[session_title]
+        # else:
+        #     session_title = mapper[session_filter[0]]
+        session_title = ''
         #plt.title(run_params['version']+'\n'+kernel+' '+cell_filter+' '+session_title)
         plt.title(kernel+' kernels, '+session_title,fontsize=fs1)
     ax.axhline(0, color='k',linestyle='--',alpha=0.25)
@@ -2220,7 +2232,8 @@ def plot_kernel_comparison(weights_df, run_params, kernel, save_results=True, dr
         plt.savefig(filename) 
     if save_kernels:
         outputs['time'] = time_vec
-        filename2 = os.path.join(run_params['fig_kernels_dir'],kernel+'_comparison_by_'+'_and_'.join(compare)+filter_string+'.pkl')
+        # filename2 = os.path.join(run_params['fig_kernels_dir'],kernel+'_comparison_by_'+'_and_'.join(compare)+filter_string+'.pkl')
+        filename2 = os.path.join(run_params['fig_kernels_dir'],kernel+'_comparison_by_'+'.pkl')
         print('Kernels Saved to: '+filename2)
         file_temp = open(filename2,'wb')
         pickle.dump(outputs, file_temp)

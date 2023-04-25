@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import pickle
 from scipy.stats import chisquare
 from scipy.stats import chi2_contingency
 from scipy.stats import power_divergence
@@ -140,9 +141,7 @@ def plot_proportions(df,areas=None,savefig=False,extra='',test='chi_squared_'):
 
     fig, ax = plt.subplots(1,3,figsize=(8,4))
     fig.subplots_adjust(left=0.1, bottom=0.25, right=0.9, top=0.9, wspace=1)
-    plot_proportion_cre(df,areas, fig, ax[2], 'Slc17a7-IRES2-Cre',test=test)
-    plot_proportion_cre(df,areas,  fig, ax[1], 'Sst-IRES-Cre',test=test)
-    plot_proportion_cre(df,areas,  fig, ax[0], 'Vip-IRES-Cre',test=test)
+    plot_proportion_cre(df,areas, fig, ax[2], 'Gad2-IRES-Cre',test=test)
     if savefig:
         extra = extra+'_'+test
         plt.savefig(get_clustering_dir()+'cluster_proportions'+extra+'.svg')
@@ -651,19 +650,21 @@ def plot_dropout_heatmap(cluster_meta, feature_matrix, cluster_id, cbar=False,
         # title is cre line abbreviation and cluster #
         cell_type = 'inhibitory'
         ax.set_title(cell_type + ' cluster ' + str(cluster_id))
+    ylabels=['images', 'omissions', 'task', 'behavioral']
     ax.set_yticks(np.arange(0.5, len(mean_dropout_df.index.values) + 0.5))
+    ax.set_yticklabels(ylabels, rotation=0, fontsize=14)
     # if abbreviate_features:
     #     # set yticks to abbreviated feature labels
     #     feature_abbreviations = get_abbreviated_features(mean_dropout_df.index.values)
     #     ax.set_yticklabels(feature_abbreviations, rotation=0)
     # else:
-    ax.set_yticklabels(mean_dropout_df.index.values, rotation=0, fontsize=14)
     # if abbreviate_experience:
     #     # set xticks to abbreviated experience level labels
     #     exp_level_abbreviations = get_abbreviated_experience_levels(mean_dropout_df.columns.values)
     #     ax.set_xticklabels(exp_level_abbreviations, rotation=90)
     # else:
-    ax.set_xticklabels(mean_dropout_df.columns.values, rotation=90, fontsize=14)
+    xlabels = ['Familiar', 'Novel', 'Novel +']
+    ax.set_xticklabels(xlabels, rotation=90, fontsize=14)
     ax.set_ylim(0, mean_dropout_df.shape[0])
     # invert y axis so images is always on top
     ax.invert_yaxis()
@@ -695,8 +696,9 @@ def plot_clusters_row(cluster_meta, feature_matrix, save_fig=True, tag=''):
 
 
     fig.subplots_adjust(hspace=1.2, wspace=0.6)
-    # fig.suptitle(get_cell_type_for_cre_line(cre_line, cluster_meta), x=0.52, y=1.1, fontsize=16)
-    # fig.tight_layout()
+    #plt.title(tag)
+    fig.suptitle(tag, x=0.52, y=1.3, fontsize=16)
+    plt.tight_layout()
     if save_fig:
         utils.save_figure(fig, figsize, filedir, '', f'mean_clusters_{n_clusters}_'+tag)
 
