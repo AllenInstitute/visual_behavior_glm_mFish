@@ -21,7 +21,7 @@ if __name__ == "__main__":
     python_executable = "{}/bin/python".format(args.env_path)
     print('python executable = {}'.format(python_executable))
     python_file = "//home/iryna.yavorska/code/visual_behavior_glm_mFish/scripts/across_session.py"
-    glm_version = '01_nonridgit_events'
+    glm_version = '02_nonrigit_events_sac'
     stdout_basedir = "//allen/programs/braintv/workgroups/nc-ophys/omFish_glm/ophys_glm"
     stdout_location = os.path.join(stdout_basedir, 'job_records_across_session')
     if not os.path.exists(stdout_location):
