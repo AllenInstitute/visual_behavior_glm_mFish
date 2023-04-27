@@ -200,7 +200,7 @@ if __name__ == "__main__":
     experiment_ids = experiments_table['ophys_experiment_id'].values
     n_experiment_ids = len(experiment_ids)
     print('refitting copper')
-    experiment_ids = [1193067624, 1193067622, 1193067630, 1193067628, 1193067627, 1193067631, 1193067625, 1193067634]
+    # experiment_ids = [1193067624, 1193067622, 1193067630, 1193067628, 1193067627, 1193067631, 1193067625, 1193067634]
     for experiment_id in experiment_ids: #[int(n_experiment_ids * args.job_start_fraction): int(n_experiment_ids * args.job_end_fraction)]:
 
         # calculate resource needs based on ROI count
