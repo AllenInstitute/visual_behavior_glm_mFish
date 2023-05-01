@@ -650,7 +650,7 @@ def plot_dropout_heatmap(cluster_meta, feature_matrix, cluster_id, cbar=False,
         # title is cre line abbreviation and cluster #
         cell_type = 'inhibitory'
         ax.set_title(cell_type + ' cluster ' + str(cluster_id))
-    ylabels=['images', 'omissions', 'task', 'behavioral']
+    ylabels=['images', 'omissions', 'behavioral',  'task']
     ax.set_yticks(np.arange(0.5, len(mean_dropout_df.index.values) + 0.5))
     ax.set_yticklabels(ylabels, rotation=0, fontsize=14)
     # if abbreviate_features:
