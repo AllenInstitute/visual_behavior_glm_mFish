@@ -69,7 +69,7 @@ parser.add_argument(
 parser.add_argument(
     '--run_params',
     type=bool,
-    default=True,
+    default=False,
     metavar='run_params',
     help='create run params json file'
 )

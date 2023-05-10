@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from brain_observatory_analysis.utilities import image_utils as utils
 
-def get_clustering_dir(version='01_nonridgit_events'):
+def get_clustering_dir(version='02_nonrigit_events_sac'):
 
     filedir = f'//allen/programs/braintv/workgroups/nc-ophys/omFish_glm/ophys_glm/v_{version}/figures/clustering/'
     return filedir
