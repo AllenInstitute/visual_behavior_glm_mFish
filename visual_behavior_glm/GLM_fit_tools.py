@@ -24,7 +24,7 @@ from allensdk.brain_observatory.behavior.behavior_project_cache import \
     VisualBehaviorOphysProjectCache 
 
 import visual_behavior_glm.GLM_analysis_tools as gat
-from mindscope_qc.data_access import behavior_ophys_experiment_dev as BehaviorOphysExperimentDev
+from brain_observatory_analysis.ophys import behavior_ophys_experiment_dev as BehaviorOphysExperimentDev
 from brain_observatory_utilities.datasets import behavior # instead of reformat
 from brain_observatory_analysis.ophys.experiment_loading import start_lamf_analysis
 # import visual_behavior.data_access.loading as loading
