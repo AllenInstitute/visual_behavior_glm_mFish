@@ -15,8 +15,8 @@ from brain_observatory_analysis.dev import data_selection_tools as dst
 # from mindscope_qc.data_access import behavior_ophys_experiment_dev as BOE_dev
 
 parser = argparse.ArgumentParser(description='deploy glm fits to cluster')
-parser.add_argument('--env-path', type=str, default='mfish_glm', metavar='path to conda environment to use')
-parser.add_argument('--version', type=str, default='testing_05_events', metavar='glm version')
+parser.add_argument('--env-path', type=str, default='/home/iryna.yavorska/anaconda3/envs/mfish_glm/', metavar='path to conda environment to use')
+parser.add_argument('--version', type=str, default='02_nonrigit_events_sac', metavar='glm version')
 parser.add_argument(
     '--src-path', 
     type=str, 
@@ -27,7 +27,7 @@ parser.add_argument(
 parser.add_argument(
     '--force-overwrite', 
     action='store_true',
-    default=False,
+    default=True,
     dest='force_overwrite', 
     help='Overwrites existing fits for this version if enabled. Otherwise only experiments without existing results are fit'
 )
@@ -48,7 +48,7 @@ parser.add_argument(
 parser.add_argument(
     '--use-previous-fit', 
     action='store_true',
-    default=False,
+    default=True,
     dest='use_previous_fit', 
     help='use previous fit if it exists (boolean, default = False)'
 )
@@ -66,6 +66,13 @@ parser.add_argument(
     metavar='end_fraction',
     help='which fraction of all jobs to end on. useful if splitting jobs amongst users. Default = 1.0'
 )
+parser.add_argument(
+    '--run_params',
+    type=bool,
+    default=False,
+    metavar='run_params',
+    help='create run params json file'
+)
 
 def calculate_required_mem(roi_count):
     '''calculate required memory in GB'''
@@ -73,7 +80,7 @@ def calculate_required_mem(roi_count):
 
 def calculate_required_walltime(roi_count):
     '''calculate required walltime in hours'''
-    estimate= 10 + 0.125*roi_count
+    estimate= 10 + 0.3*roi_count
     return np.min([estimate,48]) 
 
 def select_experiments_for_testing(returns = 'experiment_ids'):
@@ -101,7 +108,7 @@ def select_experiments_for_testing(returns = 'experiment_ids'):
         experiment table for 10 pre-chosen experiments
     '''
 
-    test_experiments = pd.read_csv('/allen/programs/braintv/workgroups/nc-ophys/omFish_glm/ophys_glm/experiments_for_testing.csv')
+    test_experiments = pd.read_csv('//allen/programs/braintv/workgroups/nc-ophys/omFish_glm/ophys_glm/experiments_for_testing.csv')
 
     if returns == 'experiment_ids':
         return test_experiments['ophys_experiment_id'].unique()
@@ -145,11 +152,15 @@ if __name__ == "__main__":
         os.mkdir(stdout_location)
     print('stdout files will be at {}'.format(stdout_location))
 
+    if args.run_params:
+        from visual_behavior_glm import GLM_params
+        GLM_params.make_run_json(VERSION=args.version,src_path=args.src_path)
+
     if args.testing:
         experiments_table = select_experiments_for_testing(returns = 'dataframe')
     elif args.targeted_restart:
         print('Using targeted restart list')
-        restart_table = r'//allen/programs/braintv/workgroups/nc-ophys/omFish_glm/ophys_glm/v_'+args.version+'/restart_table.csv'
+        restart_table = '//allen/programs/braintv/workgroups/nc-ophys/omFish_glm/ophys_glm/v_'+args.version+'/restart_table.csv'
         print('Using experiments from: '+restart_table)
         experiments_table = pd.read_csv(restart_table)
         print('{} experiments to restart'.format(len(experiments_table)))
@@ -158,13 +169,15 @@ if __name__ == "__main__":
         # cache = VisualBehaviorOphysProjectCache.from_lims()
         # experiments_table = cache.get_ophys_experiment_table()
         experiments_table = start_lamf_analysis()
-        # experiments_table = dst.limit_to_last_familiar_second_novel(experiments_table)
+        print('total number of oeids = {}'.format(len(experiments_table)))
         run_params = glm_params.load_run_json(args.version)
         projects = gft.define_project_codes()
         cre_lines = gft.define_cre_lines()
         experience_levels = gft.define_experience_levels()
         experiments_table = experiments_table[(experiments_table.project_code.isin(projects)) &
                                                (experiments_table.experience_level.isin(experience_levels))]
+        # experiments_table = experiments_table[(experiments_table.mouse_name.isin(['Copper']))]
+        print('after selection number of oeids = {}'.format(len(experiments_table)))
         # if run_params['include_4x2_data']:
         #     print('including 4x2 data')
         #     experiments_table = experiments_table[(experiments_table.reporter_line!="Ai94(TITL-GCaMP6s)")].reset_index()      
@@ -186,9 +199,9 @@ if __name__ == "__main__":
 
     experiment_ids = experiments_table['ophys_experiment_id'].values
     n_experiment_ids = len(experiment_ids)
-    print(f'number of experiments = {n_experiment_ids}')
-
-    for experiment_id in experiment_ids[int(n_experiment_ids * args.job_start_fraction): int(n_experiment_ids * args.job_end_fraction)]:
+    print('refitting copper')
+    # experiment_ids = [1193067624, 1193067622, 1193067630, 1193067628, 1193067627, 1193067631, 1193067625, 1193067634]
+    for experiment_id in experiment_ids: #[int(n_experiment_ids * args.job_start_fraction): int(n_experiment_ids * args.job_end_fraction)]:
 
         # calculate resource needs based on ROI count
         roi_count = experiments_table.query('ophys_experiment_id == @experiment_id').iloc[0]['roi_count']
@@ -220,4 +233,4 @@ if __name__ == "__main__":
                     args_string,
                 )
             )
-            time.sleep(0.001)
+            time.sleep(0.1)

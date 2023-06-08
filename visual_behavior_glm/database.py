@@ -13,6 +13,8 @@ from allensdk.internal.api import PostgresQueryMixin
 from allensdk.core.authentication import credential_injector
 from allensdk.core.auth_config import LIMS_DB_CREDENTIAL_MAP
 from allensdk.brain_observatory.behavior.behavior_project_cache import VisualBehaviorOphysProjectCache
+from brain_observatory_analysis.ophys.experiment_loading import start_lamf_analysis
+from visual_behavior_glm import GLM_fit_tools as gft
 
 
 class Database(object):
@@ -91,7 +93,7 @@ def get_behavior_data(table_name, session_id=None, id_type='behavior_session_uui
 
         all = a dictionary with each of the above table names as a key and the associated table as the value
     '''
-    db = Database('omFish_glm') # this will error out because omFish_glm database has not been established yet, ira 23.02.14
+    db = Database('omFish_glm') 
     session_id, id_type = _check_name_schema('omFish_glm', session_id, id_type)
     nested_tables = ['time', 'running', 'licks', 'rewards', 'visual_stimuli', 'omitted_stimuli']
     nested_dicts = ['metadata', 'log']
@@ -593,9 +595,12 @@ def update_or_create(collection, document, keys_to_check, force_write=False):
         if collection.find_one(query) is None:
             # insert a document if this experiment/cell doesn't already exist
             collection.insert_one(simplify_entry(document))
+            print('adding new document to collection [{}]'.format(collection.name))
         else:
             # update a document if it does exist
-            collection.update_one(query, {"$set": simplify_entry(document)})
+            print('document already exists in collection [{}]. Not updating to save time'.format(collection.name))
+            # collection.update_one(query, {"$set": simplify_entry(document)})
+            # print('updating existing document in collection [{}]'.format(collection.name))
 
 
 def get_labtracks_id_from_specimen_id(specimen_id, show_warnings=True):
@@ -811,16 +816,16 @@ def get_cell_dff_data(search_dict={}, return_id=False):
 
     return res
 
-def get_mFish_experiment_table(project_codes = ['omFish_glmCux2Meso', 'LearningmFISHTask1A', 'LearningmFISHDevelopment'], pass_only = False):
+def get_mFish_experiment_table(project_codes = ['LearningmFISHTask1A', 'LearningmFISHDevelopment']):
     ''' Returns ophys experiment table from lims for mFish learning project'''
-    cache = VisualBehaviorOphysProjectCache.from_lims()
-    ophys_experiment_table = cache.get_ophys_experiment_table(passed_only=pass_only)
+    
+    ophys_experiment_table = start_lamf_analysis()
     ophys_experiment_table = ophys_experiment_table[ophys_experiment_table['project_code'].isin(project_codes )]
     return ophys_experiment_table
 
-def get_cells_table(project_codes = ['omFish_glmCux2Meso', 'LearningmFISHTask1A', 'LearningmFISHDevelopment'], pass_only = False):
+def get_cells_table(project_codes = ['LearningmFISHTask1A', 'LearningmFISHDevelopment'], pass_only = False):
     ''' Returns cells table from lims for mFish learning project'''
-    cells_table = cache.get_ophys_cells_table()
+    cells_table = gft.load_ophys_cells_table()
     oeids = get_mFish_experiment_table(project_codes, pass_only).index_values
     cells_table = cells_table[cells_table['ophys_experiment_id'].isin(oeids)]
     return cells_table
