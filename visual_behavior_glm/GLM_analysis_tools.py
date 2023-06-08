@@ -12,12 +12,24 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 
 import visual_behavior_glm.GLM_params as glm_params
+<<<<<<< HEAD
 from brain_observatory_analysis.ophys import behavior_ophys_experiment_dev as BehaviorOphysExperimentDev
+=======
+from brain_observatory_qc.data_access import behavior_ophys_experiment_dev as BehaviorOphysExperimentDev
+>>>>>>> setup
 
 # import visual_behavior.data_access.loading as loading
 import visual_behavior_glm.database as db
 
 from sklearn.decomposition import PCA
+
+def get_save_dir():
+    base_dir = '//allen/programs/braintv/workgroups/nc-ophys/omFish_glm/ophys_glm'
+    glm_version = '01_nonridgit_events'
+
+    save_dir = os.path.join(base_dir, 'v_' + glm_version)
+    return save_dir
+
 
 def load_fit_pkl(run_params, ophys_experiment_id):
     '''
@@ -48,7 +60,7 @@ def load_fit_pkl(run_params, ophys_experiment_id):
         return fit
     else:
         KeyError(f'no fit file found for {ophys_experiment_id}')
-        #return None
+        return None
 
 def log_error(error_dict, keys_to_check = []):
     '''
@@ -309,7 +321,7 @@ def log_results_to_mongo(glm):
 
     for df,collection in zip([full_results, results_summary], ['results_full','results_summary']):
         coll = conn['ophys_glm'][collection]
-
+        print('logging {} to mongo'.format(collection))
         for idx,row in df.iterrows():
             entry = row.to_dict()
             db.update_or_create(
@@ -344,7 +356,8 @@ def get_weights_matrix_from_mongo(ophys_experiment_id, glm_version):
     w_matrix_database = conn['ophys_glm_xarrays']
 
     if w_matrix_lookup_table.count_documents(lookup_table_document) == 0:
-        warnings.warn('there is no record of a the weights matrix for oeid {}, glm_version {}'.format(ophys_experiment_id, glm_version))
+        # warnings.warn('there is no record of a the weights matrix for oeid {}, glm_version {}'.format(ophys_experiment_id, glm_version))
+        print('\nthere is no record of a the weights matrix for oeid {}, glm_version {}'.format(ophys_experiment_id, glm_version))
         conn.close()
         return None
     else:
@@ -378,6 +391,7 @@ def log_weights_matrix_to_mongo(glm):
     w_matrix_database = conn['ophys_glm_xarrays']
 
     if w_matrix_lookup_table.count_documents(lookup_table_document) >= 1:
+        print('found weights matrix for {}'.format(glm.ophys_experiment_id))
         # if weights matrix for this experiment/version has already been logged, we need to replace it
         lookup_result = list(w_matrix_lookup_table.find(lookup_table_document))[0]
 
@@ -397,6 +411,7 @@ def log_weights_matrix_to_mongo(glm):
         _id = lookup_result.pop('_id')
         w_matrix_lookup_table.update_one({'_id':_id}, {"$set": db.clean_and_timestamp(lookup_result)})
     else:
+        print('no weights matrix found for {}'.format(glm.ophys_experiment_id))
         # if the weights matrix had not already been logged
 
         # write the weights matrix to mongo
@@ -420,7 +435,7 @@ def get_experiment_table(glm_version, include_4x2_data=False):
     
     Warning: this takes a couple of minutes to run.
     '''
-    experiment_table = df.get_mFish_experiment_table().reset_index()
+    experiment_table = db.get_mFish_experiment_table().reset_index()
     dropout_summary = retrieve_results({'glm_version':glm_version}, results_type='summary')
     stdout_summary = get_stdout_summary(glm_version)
 
@@ -791,9 +806,9 @@ def process_session_to_df(oeid, run_params):
     '''
     # Get weights
     W = get_weights_matrix_from_mongo(int(oeid), run_params['version'])
-    
     # Make Dataframe with cell and experiment info
     session_df  = pd.DataFrame()
+    
     session_df['cell_specimen_id'] = W.cell_specimen_id.values
     session_df['ophys_experiment_id'] = [int(oeid)]*len(W.cell_specimen_id.values)  
     
@@ -832,8 +847,11 @@ def build_weights_df(run_params,results_pivoted, cache_results=False,load_cache=
     # Then pull the weights from each kernel into a dataframe
     sessions = []
     for index, oeid in enumerate(tqdm(oeids, desc='Iterating Sessions')):
-        session_df = process_session_to_df(oeid, run_params)
-        sessions.append(session_df)
+        try:
+            session_df = process_session_to_df(oeid, run_params)
+            sessions.append(session_df)
+        except:
+            print('Failed to process session {}'.format(oeid))
 
     # Merge all the session_dfs, and add more session level info
     weights_df = pd.concat(sessions,sort=False)
@@ -914,6 +932,8 @@ def build_weights_df(run_params,results_pivoted, cache_results=False,load_cache=
     weights_df['all-images_excited']= weights_df.apply(lambda x: kernel_excitation(x['all-images_weights']),axis=1)
 
     # Return weights_df
+    if cache_results:
+        weights_df.to_csv(get_save_dir() + '/weights_df.csv')
     return weights_df 
 
 def kernel_excitation(kernel):
@@ -1611,7 +1631,7 @@ def check_cv_nans(fit):
 
 
 def reshape_rspm_by_experience(results_pivoted = None, model_output_type='adj_fraction_change_from_full',
-                 glm_version='24_events_all_L2_optimize_by_session',
+                 glm_version='',
                  ophys_experiment_ids_to_use = None,
                  drop_duplicated_cells = True,
                  cutoff=None, features=None, single=False, save_df=False,

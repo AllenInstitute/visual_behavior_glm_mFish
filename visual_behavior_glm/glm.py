@@ -74,32 +74,50 @@ class GLM(object):
         self.collect_results()
         print('done collecting results')
 
-        try:
-            self.timestamps = self.fit['fit_trace_arr']['fit_trace_timestamps'].values
-        except KeyError:
-            # older versions of model don't have `fit_trace_arr` or `events_trace_arr`
-            # in these older versions, the fit trace was always the dff trace
-            # fill in missing keys in this case so that code below will run
-            self.timestamps = self.fit['dff_trace_arr']['dff_trace_timestamps'].values
-            self.fit['fit_trace_arr'] = self.fit['dff_trace_arr'].copy().rename({'dff_trace_timestamps':'fit_trace_timestamps'})
-            self.fit['events_trace_arr'] = self.fit['dff_trace_arr'].copy().rename({'dff_trace_timestamps':'fit_trace_timestamps'})
-            self.fit['dff_trace_arr'] = self.fit['dff_trace_arr'].rename({'dff_trace_timestamps':'fit_trace_timestamps'})
-            # fill events xarray with filtered events values from session
-            for idx in range(np.shape(self.fit['events_trace_arr'])[1]):
-                csid = int(self.fit['events_trace_arr']['cell_specimen_id'][idx])
-                all_events = self.session.events.loc[csid]['filtered_events']
-                # only include events during task (excluding gray screens at beginning/end)
-                first_index = np.where(self.session.ophys_timestamps >= self.timestamps[0])[0][0]
-                self.fit['events_trace_arr'][:,idx] = all_events[first_index:first_index + len(self.timestamps)]
+        # try:
+        self.timestamps = self.fit['fit_trace_arr']['fit_trace_timestamps'].values
+        # except KeyError:
+        #     # older versions of model don't have `fit_trace_arr` or `events_trace_arr`
+        #     # in these older versions, the fit trace was always the dff trace
+        #     # fill in missing keys in this case so that code below will run
+        #     self.timestamps = self.fit['dff_trace_arr']['dff_trace_timestamps'].values
+        #     self.fit['fit_trace_arr'] = self.fit['dff_trace_arr'].copy().rename({'dff_trace_timestamps':'fit_trace_timestamps'})
+        #     self.fit['events_trace_arr'] = self.fit['dff_trace_arr'].copy().rename({'dff_trace_timestamps':'fit_trace_timestamps'})
+        #     self.fit['dff_trace_arr'] = self.fit['dff_trace_arr'].rename({'dff_trace_timestamps':'fit_trace_timestamps'})
+        #     # fill events xarray with filtered events values from session
+        #     for idx in range(np.shape(self.fit['events_trace_arr'])[1]):
+        #         csid = int(self.fit['events_trace_arr']['cell_specimen_id'][idx])
+        #         all_events = self.session.events.loc[csid]['filtered_events']
+        #         # only include events during task (excluding gray screens at beginning/end)
+        #         first_index = np.where(self.session.ophys_timestamps >= self.timestamps[0])[0][0]
+        #         self.fit['events_trace_arr'][:,idx] = all_events[first_index:first_index + len(self.timestamps)]
 
         if log_results:
-            print('logging results to mongo')
-            gat.log_results_to_mongo(self) 
-            print('done logging results to mongo')
+            try:
+                print('logging results to mongo')
+                gat.log_results_to_mongo(self) 
+                print('done logging results to mongo')
+            except Exception as e:
+                print('failed to log results to mongo')
+                error_dict = {'oeid':self.ophys_experiment_id, 
+                              'glm_version':self.version, 
+                              'error_type':'failed_to_log_results',
+                              'exception':e.args[0]}
+                keys_to_check = ['oeid', 'glm_version', 'error_type']
+                gat.log_error(error_dict, keys_to_check)
         if log_weights:
-            print('logging W matrix to mongo')
-            gat.log_weights_matrix_to_mongo(self)
-            print('done logging W matrix to mongo')
+            try:
+                print('logging W matrix to mongo')
+                gat.log_weights_matrix_to_mongo(self)
+                print('done logging W matrix to mongo')
+            except Exception as e:
+                print('failed to log weights to mongo')
+                error_dict = {'oeid':self.ophys_experiment_id, 
+                              'glm_version':self.version, 
+                              'error_type':'failed_to_log_weights',
+                              'exception':e.args[0]}
+                keys_to_check = ['oeid', 'glm_version', 'error_type']
+                gat.log_error(error_dict, keys_to_check)
         print('done building GLM object')
 
     def _import_glm_fit_tools(self):

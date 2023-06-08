@@ -1,6 +1,7 @@
 import os
 import bz2
 import _pickle as cPickle
+import pickle
 import xarray as xr
 import numpy as np
 import pandas as pd
@@ -24,7 +25,11 @@ from allensdk.brain_observatory.behavior.behavior_project_cache import \
     VisualBehaviorOphysProjectCache 
 
 import visual_behavior_glm.GLM_analysis_tools as gat
+<<<<<<< HEAD
 from brain_observatory_analysis.ophys import behavior_ophys_experiment_dev as BehaviorOphysExperimentDev
+=======
+from brain_observatory_qc.data_access import behavior_ophys_experiment_dev as BehaviorOphysExperimentDev
+>>>>>>> setup
 from brain_observatory_utilities.datasets import behavior # instead of reformat
 from brain_observatory_analysis.ophys.experiment_loading import start_lamf_analysis
 # import visual_behavior.data_access.loading as loading
@@ -33,7 +38,7 @@ from brain_observatory_analysis.ophys.experiment_loading import start_lamf_analy
 cache = VisualBehaviorOphysProjectCache.from_lims()
 
 def define_cre_lines():
-    cre_lines=['Gad2_IRES_Cre']
+    cre_lines=['Gad2-IRES-Cre']
     return cre_lines
 
 def define_project_codes():
@@ -44,6 +49,14 @@ def define_experience_levels():
     experience_level=['Familiar', 'Novel 1', 'Novel >1']
     return experience_level
 
+def define_equipment_names():
+    equipment_names=['MESO.1', 'MESO.2']
+    return equipment_names
+
+def define_area_names():
+    area_names=['VISal', 'VISam', 'VISp', 'VISl']
+    return area_names
+
 def load_ophys_experiment_table(cre_lines=define_cre_lines(), 
         project_codes=define_project_codes(), 
         experience_level=define_experience_levels()):
@@ -52,28 +65,41 @@ def load_ophys_experiment_table(cre_lines=define_cre_lines(),
     '''
     experiment_table = start_lamf_analysis() #cache.get_ophys_experiment_table()
 
-    if not cre_lines:
-        experiment_table = experiment_table[experiment_table.project_code.isin(project_codes)]
-    
-    # if  not project_codes:
+    experiment_table = experiment_table[experiment_table.project_code.isin(project_codes)]
+  
     #     experiment_table = experiment_table[experiment_table.cre_line.isin(cre_lines)]
-        
-    if not experience_level:
-            experiment_table = experiment_table[experiment_table.experience_level.isin(experience_level)]
+
+    experiment_table = experiment_table[experiment_table.experience_level.isin(experience_level)]
 
     return experiment_table
 
 def load_ophys_cells_table(cre_lines=define_cre_lines(), 
         project_codes=define_project_codes(), 
-        experience_level=define_experience_levels()):
+        experience_level=define_experience_levels(), 
+        clean=True):
     '''
-        Loads the ophys experiments table ffor Gad2 data
+        Loads the ophys experiments table for Gad2 data
     '''
     experiment_table = load_ophys_experiment_table(cre_lines, project_codes, experience_level)
     oeids = experiment_table.index.values
 
     cell_table = cache.get_ophys_cells_table()
     cell_table = cell_table[cell_table.ophys_experiment_id.isin(oeids)]
+
+    # Novel session from Copper mouse doesnt have registration, so ophys cell table will have N/A for cell_specimen_id.
+    # These are replaced with the good cell specimen ids from the copper mouse
+    if clean:
+        print('loading good cell specimen ids for copper mouse and replacing in cell table.'
+              ' If this is not desired, set clean=False')
+        gci_file = '//allen/programs/mindscope/workgroups/learning/analysis_plots/ophys/activity_correlation_lamf/' \
+                   'nrsac/roi_match/copper_missing_osid_roi_table_nan_replaced.pkl'
+        with open(gci_file, 'rb') as f:
+            good_cids = pickle.load(f)
+            good_cids = good_cids.set_index('cell_roi_id')
+            f.close()
+
+        for index, row in good_cids.iterrows():
+            cell_table.at[row.name, 'cell_specimen_id'] = row.cell_specimen_id
 
     return cell_table
 
@@ -109,7 +135,7 @@ def load_fit_experiment(ophys_experiment_id, run_params):
     fit = gat.load_fit_pkl(run_params, ophys_experiment_id)
     experiment = load_data(ophys_experiment_id, run_params)
 
-    if fit is None:
+    if fit == 0:
         KeyError('Fit not found for oeid: '+str(ophys_experiment_id))
     
     # num_weights gets populated during stimulus interpolation
@@ -1593,10 +1619,10 @@ def add_continuous_kernel_by_label(kernel_name, design, run_params, experiment,f
             'glm_version':run_params['version']
         }
         # log error to mongo
-        # gat.log_error(
-        #     run_params['kernel_error_dict'][kernel_name],
-        #     keys_to_check = ['oeid', 'glm_version', 'kernel_name']
-        # )
+        gat.log_error(
+            run_params['kernel_error_dict'][kernel_name],
+            keys_to_check = ['oeid', 'glm_version', 'kernel_name']
+        )
         return design
     else:
         #assert length of values is same as length of timestamps
@@ -1722,11 +1748,11 @@ def add_discrete_kernel_by_label(kernel_name,design, run_params,experiment,fit):
             'oeid':experiment.metadata['ophys_experiment_id'], 
             'glm_version':run_params['version']
         }
-        # log error to mongo: # commenting this out since mongodb 'omFish' database is not set up, ira 23.02.14
-        # gat.log_error(
-        #     run_params['kernel_error_dict'][kernel_name],
-        #     keys_to_check = ['oeid', 'glm_version', 'kernel_name']
-        # )
+        # log error to mongo: 
+        gat.log_error(
+            run_params['kernel_error_dict'][kernel_name],
+            keys_to_check = ['oeid', 'glm_version', 'kernel_name']
+        )
         return design       
     else:
         events_vec, timestamps = np.histogram(event_times, bins=fit['fit_trace_bins'])
@@ -2059,15 +2085,15 @@ def get_events_arr(experiment, timestamps_to_use):
     '''
     # Get events and trim off ends
     
-    try:
-        events_df = load_oasis_events_h5_to_df(h5_path=None, oeid=experiment.ophys_experiment_id)
-        events_df.set_index('cell_roi_id', inplace=True)
-        rois = experiment.events['cell_roi_id'].values
-        events_df = events_df.loc[rois]
-        all_events = np.stack(events_df['filtered_events'].values)
-    except:
-        print('!!! Did not find new events, trying to use old events...')
-        all_events = np.stack(experiment.events['filtered_events'].values)
+    all_events = np.stack(experiment.events['filtered_events'].values)
+    
+    # events_df = load_oasis_events_h5_to_df(h5_path=None, oeid=experiment.ophys_experiment_id)
+    # events_df.set_index('cell_roi_id', inplace=True)
+    # rois = experiment.events['cell_roi_id'].values
+    # events_df = events_df.loc[rois]
+    # except:
+    #     print('!!! Did not find new events, trying to use old events...')
+    #     all_events = np.stack(experiment.events['filtered_events'].values)
     
     all_events_to_use = all_events[:, timestamps_to_use]
 
@@ -2096,7 +2122,8 @@ def get_dff_arr(experiment, timestamps_to_use):
     timestamps_to_use is a boolean vector that contains which timestamps to use in the analysis
     '''
     # Get dff and trim off ends
-    all_dff = np.stack(experiment.dff_traces['dff'].values)
+    all_dff = np.stack(experiment.inner.dff_traces['dff'].values)
+    print('Using inner dff traces')
     all_dff_to_use = all_dff[:, timestamps_to_use]
 
     # Get the timestamps
