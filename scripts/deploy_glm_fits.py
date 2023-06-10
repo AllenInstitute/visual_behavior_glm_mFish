@@ -16,7 +16,7 @@ from brain_observatory_analysis.dev import data_selection_tools as dst
 
 parser = argparse.ArgumentParser(description='deploy glm fits to cluster')
 parser.add_argument('--env-path', type=str, default='/home/iryna.yavorska/anaconda3/envs/mfish_glm/', metavar='path to conda environment to use')
-parser.add_argument('--version', type=str, default='testing_new_db', metavar='glm version')
+parser.add_argument('--version', type=str, default='version_07_events', metavar='glm version')
 parser.add_argument(
     '--src-path', 
     type=str, 
@@ -34,7 +34,7 @@ parser.add_argument(
 parser.add_argument(
     '--testing', 
     action='store_true',
-    default=True,
+    default=False,
     dest='testing', 
     help='If this flag is called, only 10 test sessions will be deployed'
 )

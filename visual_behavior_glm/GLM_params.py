@@ -71,7 +71,7 @@ def get_experiment_table(require_model_outputs = False,include_4x2_data=False):
     else:
         return experiments_table
 
-def make_run_json(VERSION,label='',username=None, src_path=None, TESTING=False,update_version=False,include_4x2_data=True):
+def make_run_json(VERSION,label='',username=None, src_path=None, TESTING=False,update_version=True,include_4x2_data=True):
     '''
         Freezes model files, parameters, and ophys experiment ids
         If the model iteration already exists, throws an error unless (update_version=True)
