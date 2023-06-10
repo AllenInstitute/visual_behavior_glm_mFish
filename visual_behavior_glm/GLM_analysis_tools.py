@@ -21,7 +21,7 @@ import visual_behavior_glm.database as db
 from sklearn.decomposition import PCA
 
 def get_save_dir():
-    base_dir = '//allen/programs/braintv/workgroups/nc-ophys/omFish_glm/ophys_dlm'
+    base_dir = '//allen/programs/braintv/workgroups/nc-ophys/omFish_glm/ophys_glm'
     glm_version = '01_nonridgit_events'
 
     save_dir = os.path.join(base_dir, 'v_' + glm_version)
@@ -61,11 +61,11 @@ def load_fit_pkl(run_params, ophys_experiment_id):
 
 def log_error(error_dict, keys_to_check = []):
     '''
-    logs contents of error_dict to the `error_logs` collection in the `ophys_dlm` mongo database
+    logs contents of error_dict to the `error_logs` collection in the `ophys_glm` mongo database
     '''
     conn=db.Database('omFish_glm') #establishes connection
     db.update_or_create(
-        collection = conn['ophys_dlm']['error_logs'],
+        collection = conn['ophys_glm']['error_logs'],
         document = db.clean_and_timestamp(error_dict),
         keys_to_check = keys_to_check, # keys to check to determine whether an entry already exists. Overwrites if an entry is found with matching keys
     )
@@ -77,7 +77,7 @@ def get_error_log(search_dict = {}):
     if search dict is an empty dict (default), it will return full contents of the kernel_error_log collection
     '''
     conn=db.Database('omFish_glm') #establishes connection
-    result = conn['ophys_dlm']['error_logs'].find(search_dict)
+    result = conn['ophys_glm']['error_logs'].find(search_dict)
     conn.close()
     return pd.DataFrame(list(result))
 
@@ -286,7 +286,7 @@ def already_fit(oeid, version):
     returns a boolean
     '''
     conn = db.Database('omFish_glm')
-    coll = conn['ophys_dlm']['weight_matrix_lookup_table']
+    coll = conn['ophys_glm']['weight_matrix_lookup_table']
     document_count = coll.count_documents({'ophys_experiment_id':int(oeid), 'glm_version':str(version)})
     conn.close()
     return document_count > 0
@@ -317,7 +317,7 @@ def log_results_to_mongo(glm):
     }
 
     for df,collection in zip([full_results, results_summary], ['results_full','results_summary']):
-        coll = conn['ophys_dlm'][collection]
+        coll = conn['ophys_glm'][collection]
         print('logging {} to mongo'.format(collection))
         for idx,row in df.iterrows():
             entry = row.to_dict()
@@ -330,11 +330,11 @@ def log_results_to_mongo(glm):
 
 def xarray_to_mongo(xarray):
     '''
-    writes xarray to the 'ophys_dlm_xarrays' database in mongo
-    returns _id of xarray in the 'ophys_dlm_xarrays' database
+    writes xarray to the 'ophys_glm_xarrays' database in mongo
+    returns _id of xarray in the 'ophys_glm_xarrays' database
     '''
     conn = db.Database('omFish_glm')
-    w_matrix_database = conn['ophys_dlm_xarrays']
+    w_matrix_database = conn['ophys_glm_xarrays']
     xdb = xarray_mongodb.XarrayMongoDB(w_matrix_database)
     _id, _ = xdb.put(xarray)
     return _id
@@ -349,8 +349,8 @@ def get_weights_matrix_from_mongo(ophys_experiment_id, glm_version):
         'ophys_experiment_id':ophys_experiment_id,
         'glm_version':glm_version,
     }
-    w_matrix_lookup_table = conn['ophys_dlm']['weight_matrix_lookup_table']
-    w_matrix_database = conn['ophys_dlm_xarrays']
+    w_matrix_lookup_table = conn['ophys_glm']['weight_matrix_lookup_table']
+    w_matrix_database = conn['ophys_glm_xarrays']
 
     if w_matrix_lookup_table.count_documents(lookup_table_document) == 0:
         # warnings.warn('there is no record of a the weights matrix for oeid {}, glm_version {}'.format(ophys_experiment_id, glm_version))
@@ -384,8 +384,8 @@ def log_weights_matrix_to_mongo(glm):
         'ophys_experiment_id':int(glm.ophys_experiment_id),
         'glm_version':glm.version,
     }
-    w_matrix_lookup_table = conn['ophys_dlm']['weight_matrix_lookup_table']
-    w_matrix_database = conn['ophys_dlm_xarrays']
+    w_matrix_lookup_table = conn['ophys_glm']['weight_matrix_lookup_table']
+    w_matrix_database = conn['ophys_glm_xarrays']
 
     if w_matrix_lookup_table.count_documents(lookup_table_document) >= 1:
         print('found weights matrix for {}'.format(glm.ophys_experiment_id))
@@ -472,7 +472,7 @@ def get_stdout_summary(glm_version):
     retrieves statistics about a given model run from mongo
     '''
     conn = db.Database('omFish_glm')
-    collection = conn['ophys_dlm']['cluster_stdout']
+    collection = conn['ophys_glm']['cluster_stdout']
     stdout_summary = pd.DataFrame(list(collection.find({'glm_version':glm_version})))
     conn.close()
 
@@ -534,7 +534,7 @@ def retrieve_results(search_dict={}, results_type='full', return_list=None, merg
         print('Pulling from Mongo')
     conn = db.Database('omFish_glm')
     # conn = db.Database('visual_behavior_data')
-    database = 'ophys_dlm'
+    database = 'ophys_glm'
     results = pd.DataFrame(list(conn[database]['results_{}'.format(results_type)].find(search_dict, return_dict)))
 
     if verbose:
@@ -626,7 +626,7 @@ def get_glm_version_summary(versions_to_compare=None,vrange=[15,20], compact=Tru
 
     # Save Summary Table
     if save_results:
-       summary_table.to_csv('/allen/programs/braintv/workgroups/nc-ophys/visual_behavior/ophys_dlm/version_comparisons/summary_table.csv',header=True) 
+       summary_table.to_csv('/allen/programs/braintv/workgroups/nc-ophys/visual_behavior/ophys_glm/version_comparisons/summary_table.csv',header=True) 
 
     return results
 
@@ -1404,7 +1404,7 @@ def select_experiments_for_testing(returns = 'experiment_ids'):
         experiment table for 10 pre-chosen experiments
     '''
 
-    test_experiments = pd.read_csv('/allen/programs/braintv/workgroups/nc-ophys/visual_behavior/ophys_dlm/experiments_for_testing.csv')
+    test_experiments = pd.read_csv('/allen/programs/braintv/workgroups/nc-ophys/visual_behavior/ophys_glm/experiments_for_testing.csv')
 
     if returns == 'experiment_ids':
         return test_experiments['ophys_experiment_id'].unique()
