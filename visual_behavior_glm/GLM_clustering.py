@@ -13,7 +13,7 @@ from brain_observatory_analysis.utilities import image_utils as utils
 
 def get_clustering_dir(version='02_nonrigit_events_sac'):
 
-    filedir = f'//allen/programs/braintv/workgroups/nc-ophys/omFish_glm/ophys_glm/v_{version}/figures/clustering/'
+    filedir = f'//allen/programs/braintv/workgroups/nc-ophys/mFish_glm/ophys_glm/v_{version}/figures/clustering/'
     return filedir
 
 def compare_stats(num_shuffles=1000):
