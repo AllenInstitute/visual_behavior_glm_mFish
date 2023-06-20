@@ -4,6 +4,7 @@ import pickle
 from scipy.stats import chisquare
 from scipy.stats import chi2_contingency
 from scipy.stats import power_divergence
+
 from scipy.stats import fisher_exact
 # import FisherExact (Used for non2x2 tables of Fisher Exact test, not used but leaving a note)
 import matplotlib.pyplot as plt
