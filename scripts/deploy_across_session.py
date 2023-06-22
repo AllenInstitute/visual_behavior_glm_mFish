@@ -13,7 +13,7 @@ parser = argparse.ArgumentParser(description='deploy glm fits to cluster')
 parser.add_argument('--env-path', type=str, default='/home/iryna.yavorska/anaconda3/envs/mfish_glm/', metavar='path to conda environment to use')
 
 def already_fit(cell_id,glm_version):
-    filepath = "//allen/programs/braintv/workgroups/nc-ophys/omFish_glm/ophys_glm/v_"+glm_version+"/across_session/"+str(cell_id)+".csv"
+    filepath = "//allen/programs/braintv/workgroups/nc-ophys/mFish_glm/ophys_glm/v_"+glm_version+"/across_session/"+str(cell_id)+".csv"
     return os.path.exists(filepath) 
 
 if __name__ == "__main__":
@@ -21,8 +21,8 @@ if __name__ == "__main__":
     python_executable = "{}/bin/python".format(args.env_path)
     print('python executable = {}'.format(python_executable))
     python_file = "//home/iryna.yavorska/code/visual_behavior_glm_mFish/scripts/across_session.py"
-    glm_version = '02_nonrigit_events_sac'
-    stdout_basedir = "//allen/programs/braintv/workgroups/nc-ophys/omFish_glm/ophys_glm"
+    glm_version = 'version_07_events'
+    stdout_basedir = "//allen/programs/braintv/workgroups/nc-ophys/mFish_glm/ophys_glm"
     stdout_location = os.path.join(stdout_basedir, 'job_records_across_session')
     if not os.path.exists(stdout_location):
         print('making folder {}'.format(stdout_location))

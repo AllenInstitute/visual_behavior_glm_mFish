@@ -117,7 +117,7 @@ def load_cells(glm_version,clean_df=True, drop_bad_cells=True):
     print('Loading across session normalized dropout scores')
     for cell in tqdm(cells):
         try:
-            filename = '//allen/programs/braintv/workgroups/nc-ophys/omFish_glm/ophys_glm/v_'+glm_version+'/across_session/'+str(cell)+'.csv'
+            filename = '//allen/programs/braintv/workgroups/nc-ophys/mFish_glm/ophys_glm/v_'+glm_version+'/across_session/'+str(cell)+'.csv'
             score_df = pd.read_csv(filename)
             score_df['cell_specimen_id'] = cell
             if clean_df:
@@ -167,7 +167,7 @@ def load_cells(glm_version,clean_df=True, drop_bad_cells=True):
     assert len(across_df['cell_specimen_id'].unique())+len(fail_df.index.unique()) == len(cells), "incorrect number of cells"
 
     if drop_bad_cells:
-        filename = '//allen/programs/braintv/workgroups/nc-ophys/omFish_glm/ophys_glm/v_'+glm_version+'/clustering/cells_to_remove.pkl'
+        filename = '//allen/programs/braintv/workgroups/nc-ophys/mFish_glm/ophys_glm/v_'+glm_version+'/clustering/cells_to_remove.pkl'
         with open(filename, 'rb') as f:
             cells_to_remove = np.array(pickle.load(f))
         across_df = across_df[across_df.cell_specimen_id.isin(cells_to_remove)==False]
@@ -194,7 +194,7 @@ def across_session_normalization(cell_specimen_id, glm_version):
     run_params = glm_params.load_run_json(glm_version)
     data = get_across_session_data(run_params,cell_specimen_id)
     score_df = compute_across_session_dropouts(data, run_params, cell_specimen_id)
-    filename = '//allen/programs/braintv/workgroups/nc-ophys/omFish_glm/ophys_glm/v_'+glm_version+'/across_session/'+str(cell_specimen_id)+'.csv' 
+    filename = '//allen/programs/braintv/workgroups/nc-ophys/mFish_glm/ophys_glm/v_'+glm_version+'/across_session/'+str(cell_specimen_id)+'.csv' 
     score_df.to_csv(filename)
 
     return data, score_df

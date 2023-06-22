@@ -16,7 +16,7 @@ from brain_observatory_analysis.dev import data_selection_tools as dst
 
 parser = argparse.ArgumentParser(description='deploy glm fits to cluster')
 parser.add_argument('--env-path', type=str, default='/home/iryna.yavorska/anaconda3/envs/mfish_glm/', metavar='path to conda environment to use')
-parser.add_argument('--version', type=str, default='02_nonrigit_events_sac', metavar='glm version')
+parser.add_argument('--version', type=str, default='version_07_events', metavar='glm version')
 parser.add_argument(
     '--src-path', 
     type=str, 
@@ -69,7 +69,7 @@ parser.add_argument(
 parser.add_argument(
     '--run_params',
     type=bool,
-    default=False,
+    default=True,
     metavar='run_params',
     help='create run params json file'
 )
@@ -80,40 +80,16 @@ def calculate_required_mem(roi_count):
 
 def calculate_required_walltime(roi_count):
     '''calculate required walltime in hours'''
-    estimate= 10 + 0.3*roi_count
+    estimate= 10 + 0.125*roi_count
     return np.min([estimate,48]) 
 
-def select_experiments_for_testing(returns = 'experiment_ids'):
-    '''
-    This function will return 10 hand-picked experiment IDs to use for testing purposes.
-    This will allow multiple versions to test against the same small set of experiments.
-
-    Experiments were chosen as follows:
-        2x OPHYS_2_passive
-        2x OPHYS_5_passive
-        2x active w/ fraction engaged < 0.05 (1 @ 0.00, 1 @ 0.02)
-        2x active w/ fraction engaged > 0.99 (1 @ 0.97, 1 @ 0.98)
-        2x active w/ fraction engaged in range (0.4, 0.6) (1 @ 0.44, 1 @ 0.59)
-
-    Parameters:
-    ----------
-    returns : str
-        either 'experiment_ids' or 'dataframe'
-
-    Returns:
-    --------
-    if returns == 'experiment_ids' (default)
-        list of 10 pre-chosen experiment IDs
-    if returns == 'dataframe':
-        experiment table for 10 pre-chosen experiments
-    '''
-
-    test_experiments = pd.read_csv('//allen/programs/braintv/workgroups/nc-ophys/omFish_glm/ophys_glm/experiments_for_testing.csv')
-
-    if returns == 'experiment_ids':
-        return test_experiments['ophys_experiment_id'].unique()
-    elif returns == 'dataframe':
-        return test_experiments
+def select_experiments_for_testing():
+    experiments_table = start_lamf_analysis()
+    projects = gft.define_project_codes()
+    experience_levels = gft.define_experience_levels()
+    experiments_table = experiments_table[(experiments_table.project_code.isin(projects)) &
+                                               (experiments_table.experience_level.isin(experience_levels))]
+    return experiments_table.iloc[0:10]
 
 def get_roi_count(ophys_experiment_id):
     '''
@@ -135,10 +111,6 @@ def already_fit(oeid, version):
     return document_count > 0
 
 
-
-
-
-
 if __name__ == "__main__":
     args = parser.parse_args()
     python_executable = "{}/bin/python".format(args.env_path)
@@ -154,20 +126,20 @@ if __name__ == "__main__":
 
     if args.run_params:
         from visual_behavior_glm import GLM_params
-        GLM_params.make_run_json(VERSION=args.version,src_path=args.src_path)
+        GLM_params.make_run_json(VERSION=args.version,src_path=args.src_path, update_version=False)
 
     if args.testing:
-        experiments_table = select_experiments_for_testing(returns = 'dataframe')
+        experiments_table = select_experiments_for_testing()
+
     elif args.targeted_restart:
         print('Using targeted restart list')
         restart_table = '//allen/programs/braintv/workgroups/nc-ophys/omFish_glm/ophys_glm/v_'+args.version+'/restart_table.csv'
         print('Using experiments from: '+restart_table)
         experiments_table = pd.read_csv(restart_table)
         print('{} experiments to restart'.format(len(experiments_table)))
+
     else:
-       
-        # cache = VisualBehaviorOphysProjectCache.from_lims()
-        # experiments_table = cache.get_ophys_experiment_table()
+        print('Using all experiments')
         experiments_table = start_lamf_analysis()
         print('total number of oeids = {}'.format(len(experiments_table)))
         run_params = glm_params.load_run_json(args.version)
